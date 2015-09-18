@@ -23,12 +23,12 @@
 
 template<typename T>
 struct UnaryFunc {
-    typedef T (*type)(const T&);
+    virtual T operator() (const T&) const;
 };
 
 template<typename T>
 struct BinaryFunc {
-    typedef T (*type)(const T&, const T&);
+    virtual T operator()(const T&, const T&) const;
 };
 
 template <class T>
@@ -43,7 +43,7 @@ class Vector {
             }
         }
 
-        void apply(const UnaryFunc<T>::type func){
+        void apply(const UnaryFunc<T> func){
             ASSERT(func,"func");
             T* a = m_data.get();            
             for(size_t i=0;i<m_size;++i){
@@ -51,7 +51,7 @@ class Vector {
             }   
         }  
 
- 	T aggregate(const BinaryFunc<T>::type func, const T& t0) const {
+ 	T aggregate(const BinaryFunc<T> func, const T& t0) const {
             ASSERT(func,"func");
 	    T t=t0;
             T* a = m_data.get();            
@@ -73,16 +73,21 @@ class Vector {
         static Vector<T> concatenate(const Vector<T>& v1, const Vector<T>& v2){
             size_t size = v1.m_size + v2.m_size;
             T* a = new T[size];
-            if( v1.m_size > 0){
-                memcpy (v1.m_data.get(), a, sizeof(T)*v1.m_size); 
-            }
-            if(v2.m_size > 0 ){
-                memcpy (v2.m_data.get(), a+v1.m_size, sizeof(T)*v2.m_size); 
-            }
             std::shared_ptr<T> data(a);
-            Vector<T> r(data, size);
+            Vector<T> r(data, size);  
+            append(v1,r);
+            append(v2,r);
             return r;
-        } 
+        }
+
+        static void append(const Vector<T>& v,  Vector<T>& r){
+            if(v.m_size == 0){
+                return;
+            }                                 
+            T* a = r.m_data.get() + r.m_size;
+            memcpy (v.m_data.get(), a, sizeof(T)*v.m_size); 
+            r.m_size += v.m_size;            
+        }  
 
     public:
         Vector(const std::shared_ptr<T> data, const size_t size): m_data(data),m_size(size){}  
@@ -169,7 +174,8 @@ typedef unsigned int UINT;
 template<class T>
 class Input {
     public:
-        virtual Vector<T> get() const =0;
+        virtual Vector<T> get() const = 0;
+        virtual size_t  size() const = 0;
     protected:
         Input(const Matrix<T>& embedding): m_embedding(embedding){}
     protected:        
@@ -180,11 +186,11 @@ const UINT PADDING_ID = 1;
 const UINT UNK_ID = 0;
 
 template<typename T>
-struct Divide {
+struct Divide: public UnaryFunc<T> {
      Divide(const T denominator): m_denominator(denominator) {
          ASSERT(scalar != 0, "denominator");
      }   
-     T operator()(const T& t){
+     virtual T operator()(const T& t){
          return t/denominator;     
      }  
     private:
@@ -213,6 +219,10 @@ class SequenceInput: public Input<T> {
             r.apply(divide);
             return r;
         } 
+
+        virtual size_t  size() const {
+            return  m_embedding.col() * (2*m_contextLength + 1 );
+        }   
 
     public:
         SequenceInput(const std::vector<UINT>& idSequence, const size_t contextLength, const Matrix<T> embedding): 
@@ -251,10 +261,15 @@ class NonSequenceInput: public Input<T> {
             return r;
         } 
 
+        virtual size_t  size() const {
+            return  m_embedding.col();
+        } 
+
     public:
         NonSequenceInput(const UINT id, const Matrix<T> m_embedding):Input<T>(embedding),  m_id(id){
             ASSERT(id>=0 && id < embedding.row(),"id");
         }
+
     private:
 	const UINT m_id;        
 };
@@ -264,11 +279,15 @@ template<class T>
 class InputLayer: public Layer<T, std::vector<Input<T>>> {
     public:
         virtual Vector<T> calc(const  std::vector<Input<T>>>& input) const {
-            ASSERT(input.size() == m_embeddings.size(),"input");           
-            std::shared_ptr<T> data(nullptr); 
-            Vector<T> r(data,0);    
+            ASSERT(input.size() == m_embeddings.size(),"input"); 
+            size_t size = 0;
+            for ( auto &i : input ){
+                size += i.size();  
+            }            
+            std::shared_ptr<T> data(new T[size]); 
+            Vector<T> r(data,size);    
             for ( auto &i : input ) {
-                r = Vector<T>.concatenate(i.get(), r);
+                Vector<T>.append(i.get(), r);
             }
             return r;
         }
@@ -285,6 +304,7 @@ class SoftmaxLayer: public Layer<T, Vector<T>> {
     public:
         virtual Vector<T> calc(const  Vector<T>& input) const {          
             ASSERT(input.size() > 0, "input"); 
+            //ref to: http://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
             size_t size = input.size();
             T* t = input.data().get(); 
             T max = *t;;
@@ -295,17 +315,17 @@ class SoftmaxLayer: public Layer<T, Vector<T>> {
                 }
                 t++;
             }
-            //ref to: http://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
             t = input.data().get(); 
-            double logSum = max;
+            double expSum = 0;
             for(size_t i=0;i<size;++i){
-                logSum += log (exp(*t-max));
+                expSum += exp(*t-max);
                 t++; 
             } 
+            double logExpSum = log(expSum);
             t = input.data().get();    
             T* a = new T[size]
             for(size_t i=0;i<size;++i){
-                *a = exp(*t - logSum); 
+                *a = exp(*t - logExpSum); 
                 t++;
                 a++;
             }  
@@ -339,5 +359,18 @@ class MLPNN: public NN<T, std::vector<Input<T>>> {
         std::vector<Layer<T, Vector<T>>> m_layers;
 };
 
+template<typename T>
+struct Tanh: public UnaryFunc<T> {
+     virtual T operator()(const T& t){
+         return tanh(t);     
+     }  
+};
+
+template<typename T>
+struct ReLU: public UnaryFunc<T> {
+     virtual T operator()(const T& t){
+         return t>0?t:0;     
+     }  
+};
 
 #endif
