@@ -78,7 +78,8 @@ namespace nn {
 
         public:
             Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}
-
+            Vector(const Vector<T>& v): m_data(v.m_data),m_size(v.m_size){}
+            Vector(Vector<T>&& v): m_data(std::move(v.m_data)),m_size(v.m_size){}
         private:
             const std::shared_ptr<T> m_data;
             const size_t m_size;
@@ -96,7 +97,7 @@ namespace nn {
                 T* M=m_data.get();
                 for(size_t i=0;i<m_row;++i){
                     y[i]=0;
-                    T* b=M[i*m_col];
+                    T* b=M+i*m_col;
                     for(size_t j=0;j<m_col;++j){
                         y[i]+=a[j]*b[j];
                     }
@@ -118,32 +119,35 @@ namespace nn {
 
         public:
             Matrix(const std::shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {}
-
+            Matrix(const Matrix<T>& m): m_data(m.m_data),m_row(m.m_row),m_col(m.m_col){}
+            Matrix(Matrix<T>&& m): m_data(std::move(m.m_data)),m_row(m.m_row),m_col(m.m_col){}
+            
         private:
 	    const std::shared_ptr<T> m_data;
 	    const size_t m_row;
 	    const size_t m_col;
     };
 
+    //Defines a layer of neural network.
     template<class T, class I>
     class Layer {
         public:
+            //Calculates output. 
             virtual Vector<T> calc(const I& input) const = 0;
     };
-
+    
+    //Defines a fully connected hidden layer.
     template<class T>
     class HiddenLayer: public Layer<T, Vector<T>> {
         public:
             //W: output*input matrix
             //b: bias vector with size being the number of output nodes
             HiddenLayer(const Matrix<T>& W, const Vector<T>& b, std::function<T(const T&)>&  activationFunc): m_W(W), m_b(b),m_activationFunc(activationFunc){
-                ASSERT(m_W.col() == b.size(),"W and b");
-                ASSERT(m_activationFunc,"activationFunc");
+                ASSERT(W.row() == b.size(),"W and b");               
             }
 
         public:
-            virtual Vector<T> calc(const  Vector<T>& input) const {
-                ASSERT(m_W.row() == input.size(),"input");
+            virtual Vector<T> calc(const  Vector<T>& input) const {               
                 Vector<T> r = m_W.multiply(input);
                 r.plus(m_b);
                 r.apply(m_activationFunc);
@@ -326,8 +330,13 @@ namespace nn {
     
     template <class T>
     struct ActivationFunctions{
-         static auto Tanh=[] (const T& t){return tanh(t);};
-         static auto ReLU=[] (const T& t){return t>0?t:0;};
+        static T Tanh(const T& t){
+            return tanh(t);
+        }
+        
+        static T ReLU(const T& t){
+            return t>0?t:0;
+        }
     }; 
 }
 #endif

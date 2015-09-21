@@ -45,6 +45,60 @@ void vectorAggregateTest(){
     ASSERT(equals(result , 1.1f), "result");  
 }
 
+void matrixMultiplyTest(){
+    auto t = new float[2*3];
+    //first row: 1 2 3 
+    t[0]=1;
+    t[1]=2;
+    t[2]=3;
+    //second row: 4 5 6
+    t[3]=4;
+    t[4]=5;
+    t[5]=6;
+    Matrix<float> m(shared_ptr<float>(t),2,3);
+    
+    t = new float[3];
+    t[0]=0.1;
+    t[1]=0.2; 
+    t[2]=0.3;      
+    Vector<float> v(shared_ptr<float>(t),3);  
+    
+    auto r=m.multiply(v);
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
+    ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]"); 
+}
+
+void hiddenLayerTest(){
+    auto t = new float[2*3];
+    //first row: 1 2 3 
+    t[0]=1;
+    t[1]=2;
+    t[2]=3;
+    //second row: 4 5 6
+    t[3]=4;
+    t[4]=5;
+    t[5]=6;
+    Matrix<float> W(shared_ptr<float>(t),2,3);
+    
+    t=new float[2];
+    t[0]=1.5;
+    t[1]=1.8;
+    Vector<float> b(shared_ptr<float>(t),2);
+    function<float(const float&)> func=ActivationFunctions<float>::Tanh;  
+    HiddenLayer<float> layer(W,b,func);     
+    t = new float[3];
+    t[0]=0.1;
+    t[1]=0.2; 
+    t[2]=0.3;      
+    Vector<float> v(shared_ptr<float>(t),3);  
+    
+    auto r=layer.calc(v);
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(r.data().get()[0] , tanh(2.9f)), "r[0]");
+    ASSERT(equals(r.data().get()[1] , tanh(5.0f)), "r[1]"); 
+}
+
 void softmaxLayerTest(){
     float* t = new float[2];
     t[0]=0.5;
@@ -64,5 +118,7 @@ int main( int argc, const char* argv[] )
     vectorPlusTest();
     vectorApplyTest();
     vectorAggregateTest();
+    matrixMultiplyTest();
+    hiddenLayerTest();
     softmaxLayerTest();
 }
