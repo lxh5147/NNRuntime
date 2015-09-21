@@ -1,13 +1,14 @@
 #ifndef __NN__
 #define __NN__
 
+#include <iostream>
 #include <stdio.h>
 #include <cstdlib>
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <cstring>
 
-<cstring>
 #ifndef NDEBUG
 #   define ASSERT(condition, message) \
     do { \
@@ -70,16 +71,6 @@ class Vector {
         } 
 
     public:
-        static Vector<T> concatenate(const Vector<T>& v1, const Vector<T>& v2){
-            size_t size = v1.m_size + v2.m_size;
-            T* a = new T[size];
-            std::shared_ptr<T> data(a);
-            Vector<T> r(data, size);  
-            append(v1,r);
-            append(v2,r);
-            return r;
-        }
-
         static void append(const Vector<T>& v,  Vector<T>& r){
             if(v.m_size == 0){
                 return;
@@ -89,9 +80,9 @@ class Vector {
             r.m_size += v.m_size;            
         }  
 
-    public:
-        Vector(const std::shared_ptr<T> data, const size_t size): m_data(data),m_size(size){}  
-     
+    public:      
+        Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){std::cout<<"default constructor called"<<std::endl;}         
+       
     private:
         const std::shared_ptr<T> m_data;
         const size_t m_size; 
@@ -113,7 +104,7 @@ class Matrix {
                 }
             } 
             std::shared_ptr<T> data(y);
-            Vector<T> r(data, size);
+            Vector<T> r(data, m_row);
             return r;               
         }   
     
@@ -130,7 +121,7 @@ class Matrix {
         } 
 
     public:
-        Matrix(const std::shared_ptr<T> data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {} 
+        Matrix(const std::shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {} 
      
     private:
 	const std::shared_ptr<T> m_data;
@@ -139,7 +130,7 @@ class Matrix {
 };
 
 template<class T, class I>
-public class Layer {
+class Layer {
     public:
         virtual Vector<T> calc(const I& input) const = 0;  
 };
@@ -149,7 +140,7 @@ class HiddenLayer: public Layer<T, Vector<T>> {
     public:
         //W: output*input matrix
         //b: bias vector with size being the number of output nodes 
-        Layer(const Matrix<T>& W, const Vector<T>& b, const UnaryFunc<T>::type activationFunc): m_W(W), m_b(b),m_activationFunc(activationFunc){
+        HiddenLayer(const Matrix<T>& W, const Vector<T>& b, const UnaryFunc<T> activationFunc): m_W(W), m_b(b),m_activationFunc(activationFunc){
             ASSERT(m_W.col() == b.size(),"W and b");
             ASSERT(m_activationFunc,"activationFunc");
         }
@@ -166,7 +157,7 @@ class HiddenLayer: public Layer<T, Vector<T>> {
     private:
         Matrix<T> m_W;
         Vector<T> m_b;	
-        const UnaryFunc<T>::type m_activationFunc;	
+        const UnaryFunc<T> m_activationFunc;	
 };
 
 typedef unsigned int UINT;  
@@ -176,8 +167,10 @@ class Input {
     public:
         virtual Vector<T> get() const = 0;
         virtual size_t  size() const = 0;
+
     protected:
         Input(const Matrix<T>& embedding): m_embedding(embedding){}
+
     protected:        
         const Matrix<T> m_embedding;
 };
@@ -188,10 +181,10 @@ const UINT UNK_ID = 0;
 template<typename T>
 struct Divide: public UnaryFunc<T> {
      Divide(const T denominator): m_denominator(denominator) {
-         ASSERT(scalar != 0, "denominator");
+         ASSERT(denominator != 0, "denominator");
      }   
      virtual T operator()(const T& t){
-         return t/denominator;     
+         return t/m_denominator;     
      }  
     private:
         const T m_denominator;   
@@ -202,7 +195,7 @@ class SequenceInput: public Input<T> {
     public:
         virtual Vector<T> get() const {
             //generate a vectors for each text window
-            size_t size = m_embedding.col() * (2*m_contextLength + 1 );           
+            size_t size = Input<T>::m_embedding.col() * (2*m_contextLength + 1 );           
             std::shared_ptr<T> a(new T[size]);
             Vector<T> v(a,size);
 
@@ -221,7 +214,7 @@ class SequenceInput: public Input<T> {
         } 
 
         virtual size_t  size() const {
-            return  m_embedding.col() * (2*m_contextLength + 1 );
+            return  Input<T>::m_embedding.col() * (2*m_contextLength + 1 );
         }   
 
     public:
@@ -232,12 +225,12 @@ class SequenceInput: public Input<T> {
 
     private:
         void generateConcatenatedVector(Vector<T>& v, UINT pos) const {
-            T* E = m_embedding.data().get();
+            T* E = Input<T>::m_embedding.data().get();
             T* c = v.data().get();
-            size_t col = m_embedding.col(); 
+            size_t col = Input<T>::m_embedding.col(); 
             size_t size = m_idSequence.size();
             for(size_t i=pos-m_contextLength; i<=pos+m_contextLength;++i) {
-                UINT id = i>=0 && i < size ? m_idSequence[i]:UINT PADDING_ID;
+                UINT id = i>=0 && i < size ? m_idSequence[i]:PADDING_ID;
                 memcpy(E+i*col, c, sizeof(T)*col);
                 c+= col;
             }             
@@ -252,21 +245,21 @@ template<class T>
 class NonSequenceInput: public Input<T> {
     public:
         virtual Vector<T> get() const {
-            size_t size = m_embedding.col();
-            T* a = new T[size]
+            size_t size = Input<T>::m_embedding.col();
+            T* a = new T[size];
             std::shared_ptr<T> data(a);            
-            T* E = m_embedding.data().get();
-            memcpy(E+m_id*col, a, sizeof(T)*size);
+            T* E = Input<T>::m_embedding.data().get();
+            memcpy(E+m_id*size, a, sizeof(T)*size);
             Vector<T> r(data,size);
             return r;
         } 
 
         virtual size_t  size() const {
-            return  m_embedding.col();
+            return  Input<T>::m_embedding.col();
         } 
 
     public:
-        NonSequenceInput(const UINT id, const Matrix<T> m_embedding):Input<T>(embedding),  m_id(id){
+        NonSequenceInput(const UINT id, const Matrix<T> embedding):Input<T>(embedding),  m_id(id){
             ASSERT(id>=0 && id < embedding.row(),"id");
         }
 
@@ -278,7 +271,7 @@ class NonSequenceInput: public Input<T> {
 template<class T>
 class InputLayer: public Layer<T, std::vector<Input<T>>> {
     public:
-        virtual Vector<T> calc(const  std::vector<Input<T>>>& input) const {
+        virtual Vector<T> calc(const  std::vector<Input<T>>& input) const {
             ASSERT(input.size() == m_embeddings.size(),"input"); 
             size_t size = 0;
             for ( auto &i : input ){
@@ -287,16 +280,16 @@ class InputLayer: public Layer<T, std::vector<Input<T>>> {
             std::shared_ptr<T> data(new T[size]); 
             Vector<T> r(data,size);    
             for ( auto &i : input ) {
-                Vector<T>.append(i.get(), r);
+                Vector<T>::append(i.get(), r);
             }
             return r;
         }
 
     public:
-        InputLayer(const std::vector<<Matrix<T>>>& embeddings): m_embeddings(embeddings){}
+        InputLayer(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}
 
     private:
-        std::vector<<Matrix<T>>> m_embeddings;     
+        std::vector<Matrix<T>> m_embeddings;     
 };
 
 template <class T>
@@ -305,35 +298,28 @@ class SoftmaxLayer: public Layer<T, Vector<T>> {
         virtual Vector<T> calc(const  Vector<T>& input) const {          
             ASSERT(input.size() > 0, "input"); 
             //ref to: http://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
-            size_t size = input.size();
+            size_t size = input.size();           
             T* t = input.data().get(); 
-            T max = *t;;
-            t++;
+            T max = t[0];           
             for(size_t i=1;i<size;++i){
-                if(max < *t){
-                    max = *t;
+                if(max < t[i]){
+                    max = t[i];
                 }
-                t++;
-            }
-            t = input.data().get(); 
+            }           
             double expSum = 0;
             for(size_t i=0;i<size;++i){
-                expSum += exp(*t-max);
-                t++; 
-            } 
-            double logExpSum = log(expSum);
-            t = input.data().get();    
-            T* a = new T[size]
+                expSum += exp(t[i]-max);
+            }
+            double logExpSum = max + log(expSum);          
+            T* a = new T[size];
             for(size_t i=0;i<size;++i){
-                *a = exp(*t - logExpSum); 
-                t++;
-                a++;
-            }  
-            std::shared_ptr<T> data(a);            
-            Vector<T> r(data,size);
-            return r;
+                a[i] = exp(t[i] - logExpSum); 
+            }
+            std::shared_ptr<T> data(a);
+            //optimized by compiler so that no temporal object is generated
+            return Vector<T>(data,size);          
+        }
 };
-
 
 template <class T, class I>
 class NN {
@@ -372,5 +358,4 @@ struct ReLU: public UnaryFunc<T> {
          return t>0?t:0;     
      }  
 };
-
 #endif
