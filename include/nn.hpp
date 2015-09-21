@@ -81,7 +81,7 @@ class Vector {
         }  
 
     public:      
-        Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){std::cout<<"default constructor called"<<std::endl;}         
+        Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}         
        
     private:
         const std::shared_ptr<T> m_data;

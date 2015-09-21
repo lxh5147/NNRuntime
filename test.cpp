@@ -1,4 +1,4 @@
-#include "nn.h"
+#include "nn.hpp"
 
 void SoftmaxLayerTest(){
      float* t = new float[2];
@@ -9,8 +9,7 @@ void SoftmaxLayerTest(){
      //return input; 
      SoftmaxLayer<float> softmaxLayer;
      Vector<float> result = softmaxLayer.calc(input); 
-     ASSERT(result.size() == 2, "result");
-     std::cout << result.data().get()[0] << std::endl;
+     ASSERT(result.size() == 2, "result");  
      ASSERT(result.data().get()[0] == 0.5, "result");
      ASSERT(result.data().get()[1] == 0.5, "result");
 }
