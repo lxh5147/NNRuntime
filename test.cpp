@@ -99,6 +99,51 @@ void hiddenLayerTest(){
     ASSERT(equals(r.data().get()[1] , tanh(5.0f)), "r[1]"); 
 }
 
+void sequenceInputTest(){
+    //defines one embedding
+    //three rows: 0 1 2
+    auto t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.1;
+    t[3]=0.2;
+    
+    t[4]=0.3;
+    t[5]=0.4;
+    
+    Matrix<float> E(shared_ptr<float>(t),3,2);
+    std::vector<UINT> idSequence = { 0,2 };
+    SequenceInput<float> input(idSequence,1,E);
+    auto r=input.get();
+    ASSERT(r.size() == 2*3, "r");
+    ASSERT(equals(r.data().get()[0] , 0.05f), "r");
+    ASSERT(equals(r.data().get()[1] , 0.1f), "r");
+    ASSERT(equals(r.data().get()[2] , 0.15f), "r");
+    ASSERT(equals(r.data().get()[3] , 0.2f), "r");
+    ASSERT(equals(r.data().get()[4] , 0.2f), "r");
+    ASSERT(equals(r.data().get()[5] , 0.3f), "r");
+}
+
+void nonSequenceInputTest(){
+    auto t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.1;
+    t[3]=0.2;
+    
+    t[4]=0.3;
+    t[5]=0.4;
+    
+    Matrix<float> E(shared_ptr<float>(t),3,2);
+    NonSequenceInput<float> input(2,E);
+    auto r=input.get();
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(r.data().get()[0] , 0.3f), "r");
+    ASSERT(equals(r.data().get()[1] , 0.4f), "r");   
+}
+
 void softmaxLayerTest(){
     float* t = new float[2];
     t[0]=0.5;
@@ -120,5 +165,7 @@ int main( int argc, const char* argv[] )
     vectorAggregateTest();
     matrixMultiplyTest();
     hiddenLayerTest();
+    sequenceInputTest();
+    nonSequenceInputTest();
     softmaxLayerTest();
 }
