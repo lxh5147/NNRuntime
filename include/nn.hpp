@@ -35,6 +35,26 @@ namespace nn {
                     elements[i]+=otherElements[i];
                 }
             }
+            
+            void divide(T denominator){
+                ASSERT(denominator!=0,"denominator");
+                T* elements=m_data.get();
+                for(size_t i=0;i<m_size;++i){
+                    elements[i]/=denominator;
+                }                
+            }
+
+            void max(const Vector<T>& vector){
+                ASSERT(vector.m_size==m_size,"vector");
+                T* elements=m_data.get();
+                const T* otherElements=vector.m_data.get();
+                for(size_t i=0;i<m_size;++i){
+                    if(elements[i]<otherElements[i]){
+                        elements[i]=otherElements[i];
+                    }                    
+                }
+            }
+
             //Applys the unary function to each element of this vector. This vector is updated to reflect the application of the function.
             void apply(const std::function<T(const T&)>& func){               
                 T* elements=m_data.get();
@@ -115,9 +135,9 @@ namespace nn {
             Matrix(const std::shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {}
             
         private:
-	        std::shared_ptr<T> m_data;
-	        size_t m_row;
-	        size_t m_col;
+	        const std::shared_ptr<T> m_data;
+	        const size_t m_row;
+	        const size_t m_col;
     };
 
     //Defines a layer of neural network.
@@ -147,9 +167,9 @@ namespace nn {
             }
 
         private:
-            Matrix<T> m_weights;
-            Vector<T> m_bias;
-            std::function<T(const T&)> m_activationFunc;
+            const Matrix<T> m_weights;
+            const Vector<T> m_bias;
+            const std::function<T(const T&)> m_activationFunc;
     };
     
     //Defines embedding list.
@@ -165,15 +185,81 @@ namespace nn {
             Embeddings(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}           
             
         private:
-            std::vector<Matrix<T>> m_embeddings;     
-    };    
+            const std::vector<Matrix<T>> m_embeddings;     
+    };
+            
+    template<class T>
+    class Itorator{
+        public:           
+            virtual bool next(T&)=0;
+    };
+    
+    template<class T>
+    class Pooling {
+        public:
+            virtual const void calc(T&,Itorator<T>&,T&) const=0;
+    };
+    
+    template<class T>
+    void plus(T& target,const T& other){
+        target.plus(other);
+    }
+    
+    template<class T,class U>
+    void divide(T& target, U denominator){
+        target.divide(denominator);
+    }
 
+    template<class T>
+    void max(T& target,const T& other){
+        target.max(other);
+    }
+    
+    template<class T>
+    class AveragePooling: public Pooling<T> {
+        public:
+            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const { 
+                bool hasElement = it.next(output);
+                ASSERT(hasElement,"it");               
+                size_t total=1;                
+                while(it.next(buffer)){
+                    ++total;
+                    plus<T>(output,buffer);
+                }             
+                divide<T,size_t>(output,total);               
+            }
+    };
+    
+    template<class T>
+    class SumPooling: public Pooling<T> {
+        public:
+            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {
+                bool hasElement = it.next(output);
+                ASSERT(hasElement,"it");                
+                while(it.next(buffer)){                 
+                    plus<T>(output,buffer);
+                }              
+            }
+    }; 
+    
+    template<class T>
+    class MaxPooling: public Pooling<T> {
+        public:
+            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {  
+                bool hasElement = it.next(output);
+                ASSERT(hasElement,"it");   
+                while(it.next(buffer)){                 
+                    max<T>(output,buffer);
+                }  
+            }
+    }; 
+    
     //Defines input for neural network.
     template<class T>
     class Input {
         public:
-            virtual Vector<T> get() const = 0;
-            virtual size_t  size() const = 0;
+            virtual Vector<T> get() const =0;
+            virtual size_t  size() const =0;
 
         protected:
             Input(const Matrix<T>& embedding): m_embedding(embedding){}
@@ -191,34 +277,27 @@ namespace nn {
     template<class T>
     class SequenceInput: public Input<T> {
         public:
-            virtual Vector<T> get() const {                
-                //generate a vector for each text window
+            virtual Vector<T> get() const {
                 size_t dimension = size();             
-                Vector<T> concatenationBuffer(std::shared_ptr<T>(new T[dimension]),dimension);                
+                Vector<T> buffer(std::shared_ptr<T>(new T[dimension]),dimension);                
                 Vector<T> output(std::shared_ptr<T>(new T[dimension]),dimension);
-                memset (output.data().get(),0,sizeof(T)*dimension);    
-                size_t countOfIds=m_idSequence.size();
-                for(size_t pos=0;pos<countOfIds;++pos){
-                    generateConcatenatedVector(concatenationBuffer,pos);       
-                    output.plus(concatenationBuffer);       
-                }
-                //average pooling
-                auto divide=[countOfIds](const T& t){return t/countOfIds;}; 
-                output.apply(divide);
-                return output;
+                InputVectorIterator it(*this);
+                m_pooling.calc(output,it,buffer);  
+                return output;                             
             }
+            
             //Returns the dimension of the input vector associated with this sequence input.
             virtual size_t  size() const {
                 return  Input<T>::m_embedding.col() * (2*m_contextLength + 1 );
             }
 
         public:
-            SequenceInput(const std::vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding):
-                Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength){
+            SequenceInput(const std::vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding, const Pooling<Vector<T>>& pooling):
+                Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength),m_pooling(pooling){
                 ASSERT(m_idSequence.size()>0,"idSequence");
                 ASSERT(contextLength>=0,"contextLength");
                 for(auto &id:idSequence){
-                    ASSERT(id>=0 && id < embedding.row(),"id");
+                    ASSERT(id < embedding.row(),"id");
                 }
             }           
 
@@ -239,8 +318,30 @@ namespace nn {
             }
 
         private:
-	        std::vector<size_t> m_idSequence;
-            size_t m_contextLength;
+	        const std::vector<size_t> m_idSequence;
+            const size_t m_contextLength;
+            const Pooling<Vector<T>>& m_pooling;
+            
+        private:
+            class InputVectorIterator: public Itorator<Vector<T>>{
+                public:          
+                    virtual bool next(Vector<T>& buffer) {
+                        if(m_pos<m_sequenceInput.m_idSequence.size()){
+                            m_sequenceInput.generateConcatenatedVector(buffer,m_pos++);
+                            return true;                                                    
+                        }
+                        else{
+                            return false;
+                        }
+                    }
+                    
+                public:
+                    InputVectorIterator(const SequenceInput<T>& sequenceInput):m_sequenceInput(sequenceInput),m_pos(0){}
+                    
+                private:
+                    const SequenceInput<T>& m_sequenceInput;
+                    size_t m_pos;
+            };
     };
     
     //Defines a non-sequence input. A non-sequence input has an embedding table, and a symbol id.
@@ -261,7 +362,7 @@ namespace nn {
 
         public:
             NonSequenceInput(const size_t id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
-                ASSERT(id>=0 && id < embedding.row(),"id");
+                ASSERT(id < embedding.row(),"id");
             }
                          
         private:
