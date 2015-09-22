@@ -56,7 +56,7 @@ void hiddenLayerTest(){
 
 void sequenceInputTest(){
     Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
-    std::vector<UINT> idSequence = { 0,2 };
+    std::vector<size_t> idSequence = { 0,2 };
     SequenceInput<float> input(idSequence,1,E);
     auto r=input.get();
     ASSERT(r.size() == 2*3, "r");
@@ -79,7 +79,7 @@ void nonSequenceInputTest(){
 
 void inputLayerTest(){
     Matrix<float> E1(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
-    std::vector<UINT> idSequence = { 0,2 };
+    std::vector<size_t> idSequence = { 0,2 };
     SequenceInput<float> sequenceInput(idSequence,1,E1);
     Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
     NonSequenceInput<float> nonSequenceInput(2,E2);

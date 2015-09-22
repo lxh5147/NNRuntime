@@ -166,10 +166,8 @@ namespace nn {
             
         private:
             std::vector<Matrix<T>> m_embeddings;     
-    };
-    
-    typedef unsigned int UINT;
-    
+    };    
+
     //Defines input for neural network.
     template<class T>
     class Input {
@@ -185,9 +183,9 @@ namespace nn {
     };
     
     //Id of the symbol for padding
-    const UINT PADDING_ID = 1;
+    const size_t PADDING_ID = 1;
     //Id of out-of-vocabulary symbol
-    const UINT UNK_ID = 0;
+    const size_t UNK_ID = 0;
     
     //Defines a sequence input. A sequence input has an embedding table, a text window size and a sequence of symbol ids. An embedding table is a matrix, with its i^th row reresenting the embedding of the i^th symbol.
     template<class T>
@@ -200,7 +198,7 @@ namespace nn {
                 Vector<T> r(std::shared_ptr<T>(new T[dimension]),dimension);
                 memset (r.data().get(),0,sizeof(T)*dimension);    
                 size_t countOfIds=m_idSequence.size();
-                for(UINT pos=0;pos<countOfIds;++pos){
+                for(size_t pos=0;pos<countOfIds;++pos){
                     generateConcatenatedVector(v,pos);       
                     r.plus(v);       
                 }
@@ -215,7 +213,7 @@ namespace nn {
             }
 
         public:
-            SequenceInput(const std::vector<UINT>& idSequence, const size_t contextLength, const Matrix<T>& embedding):
+            SequenceInput(const std::vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding):
                 Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength){
                 ASSERT(m_idSequence.size()>0,"idSequence");
                 ASSERT(contextLength>=0,"contextLength");
@@ -225,7 +223,7 @@ namespace nn {
             }           
 
         private:
-            void generateConcatenatedVector(Vector<T>& v, UINT pos) const {                
+            void generateConcatenatedVector(Vector<T>& v, size_t pos) const {                
                 T* E=Input<T>::m_embedding.data().get();
                 T* c=v.data().get();
                 size_t col=Input<T>::m_embedding.col();
@@ -234,14 +232,14 @@ namespace nn {
                 int start=(int)pos-(int)m_contextLength;               
                 int end=pos+m_contextLength;                
                 for(int i=start;i<=end;++i) {
-                    UINT id=i>=0 && i < size ? m_idSequence[i]:PADDING_ID;                  
+                    size_t id=i>=0 && i < size ? m_idSequence[i]:PADDING_ID;                  
                     memcpy(c, E+id*col, sizeof(T)*col);
                     c+= col;
                 }
             }
 
         private:
-	        std::vector<UINT> m_idSequence;
+	        std::vector<size_t> m_idSequence;
             size_t m_contextLength;
     };
     
@@ -263,12 +261,12 @@ namespace nn {
             }
 
         public:
-            NonSequenceInput(const UINT id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
+            NonSequenceInput(const size_t id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
                 ASSERT(id>=0 && id < embedding.row(),"id");
             }
                          
         private:
-	        UINT m_id;
+	        size_t m_id;
     };
 
     //Defins the input layer of neural network, which consists of a set of sequence/non-sequence inputs.
