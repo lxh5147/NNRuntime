@@ -82,7 +82,7 @@ namespace nn {
             Vector(Vector<T>&& other): m_data(std::move(other.m_data)),m_size(other.m_size){}
         private:
             const std::shared_ptr<T> m_data;
-            const size_t m_size;
+            size_t m_size;
     };
     
     //Defines a matrix of shape row*col.
@@ -165,6 +165,12 @@ namespace nn {
     //Defines embedding list.
     template<class T>
     class Embeddings {
+        public:
+            const Matrix<T>& get(size_t i) const {
+                ASSERT(i<m_embeddings.size(),"i");
+                return m_embeddings[i];
+            }
+            
         public:
             Embeddings(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}
             Embeddings(const Embeddings<T>& other): m_embeddings(other.m_embeddings){}
@@ -285,21 +291,21 @@ namespace nn {
 
     //Defins the input layer of neural network, which consists of a set of sequence/non-sequence inputs.
     template<class T>
-    class InputLayer: public Layer<T, std::vector<Input<T>>> {
+    class InputLayer: public Layer<T, std::vector<std::reference_wrapper<Input<T>>>>{
         public:
             //Returns the input vector calculated based on sequence/non-sequence inputs.
-            virtual Vector<T> calc(const  std::vector<Input<T>>& input) const {                
+            virtual Vector<T> calc(const  std::vector<std::reference_wrapper<Input<T>>>& input) const {                
                 //dimension of the input vector
                 size_t size=0;
                 for (auto &i:input){
-                    size+=i.size();
+                    size+=i.get().size();
                 }
                 //the output vector has enough element buffer but zero length
                 std::shared_ptr<T> data(new T[size]);
                 Vector<T> r(data,0);
                 for (auto &i:input) {
                     //append to the output vector
-                    Vector<T>::append(i.get(), r);
+                    Vector<T>::append(i.get().get(), r);
                 }
                 return r;
             }
@@ -343,13 +349,13 @@ namespace nn {
 
     //Defines a multiple layer neural network, consisting of an input layer and a list of other layers.
     template <class T>
-    class MLPNN: public NN<T, std::vector<Input<T>>> {
+    class MLPNN: public NN<T, std::vector<std::reference_wrapper<Input<T>>>> {
         public:
-            virtual Vector<T> calc(const std::vector<Input<T>>& input) const {
+            virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& input) const {
                 //thread safe
                 Vector<T> v = m_inputLayer.calc(input);
                 for(auto &layer: m_layers){
-                    v=layer.calc(v);
+                    v=layer.get().calc(v);
                 }
                 return v;
             }

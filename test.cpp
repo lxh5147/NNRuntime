@@ -144,6 +144,78 @@ void nonSequenceInputTest(){
     ASSERT(equals(r.data().get()[1] , 0.4f), "r");   
 }
 
+void inputLayerTest(){
+    auto t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.1;
+    t[3]=0.2;
+    
+    t[4]=0.3;
+    t[5]=0.4;
+    
+    Matrix<float> E1(shared_ptr<float>(t),3,2);
+    std::vector<UINT> idSequence = { 0,2 };
+    SequenceInput<float> sequenceInput(idSequence,1,E1);
+    
+    t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.3;
+    t[3]=0.8;
+    
+    t[4]=0.2;
+    t[5]=0.9;
+    
+    Matrix<float> E2(shared_ptr<float>(t),3,2);
+    NonSequenceInput<float> nonSequenceInput(2,E2); 
+     
+    vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};
+    
+    InputLayer<float> layer;
+    auto r =layer.calc(inputs);
+    ASSERT(r.size() == 2*3+2, "r");
+    ASSERT(equals(r.data().get()[0] , 0.05f), "r");
+    ASSERT(equals(r.data().get()[1] , 0.1f), "r");
+    ASSERT(equals(r.data().get()[2] , 0.15f), "r");
+    ASSERT(equals(r.data().get()[3] , 0.2f), "r");
+    ASSERT(equals(r.data().get()[4] , 0.2f), "r");
+    ASSERT(equals(r.data().get()[5] , 0.3f), "r");  
+    ASSERT(equals(r.data().get()[6] , 0.2f), "r");  
+    ASSERT(equals(r.data().get()[7] , 0.9f), "r");  
+}
+
+void MLPNNTest(){
+    //define two embeddings
+    auto t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.1;
+    t[3]=0.2;
+    
+    t[4]=0.3;
+    t[5]=0.4;
+    
+    Matrix<float> E1(shared_ptr<float>(t),3,2);
+    
+    t = new float[3*2]; 
+    t[0]=0;
+    t[1]=0;
+    
+    t[2]=0.3;
+    t[3]=0.8;
+    
+    t[4]=0.2;
+    t[5]=0.9;
+    
+    Matrix<float> E2(shared_ptr<float>(t),3,2);
+    
+    Embeddings<float> embeddings ({E1,E2});
+}
+
 void softmaxLayerTest(){
     float* t = new float[2];
     t[0]=0.5;
@@ -167,5 +239,7 @@ int main( int argc, const char* argv[] )
     hiddenLayerTest();
     sequenceInputTest();
     nonSequenceInputTest();
+    inputLayerTest();
     softmaxLayerTest();
+    MLPNNTest();
 }
