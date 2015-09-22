@@ -12,9 +12,8 @@ This file defines the runtime of a neural network.
 #include <cmath>
 #include <cstring>
 namespace nn {
-    //Defines an macro that logs error message and stops the current program if some condition does not hold. It only works when NDEBUG is not defined.
-    #ifndef NDEBUG
-    #   define ASSERT(condition, message) \
+    //Defines an macro that logs error message and stops the current program if some condition does not hold.
+    #define ASSERT(condition, message) \
         do { \
             if (! (condition)) { \
                 std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
@@ -22,10 +21,7 @@ namespace nn {
                 std::exit(EXIT_FAILURE); \
             } \
         } while (false)
-    #else
-    #   define ASSERT(condition, message) do { } while (false)
-    #endif   
-
+    
     //Defines a vector. A vector consists of an array of elements and their size.  
     template <class T>
     class Vector {
@@ -77,11 +73,9 @@ namespace nn {
             }
 
         public:
-            Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}
-            Vector(const Vector<T>& other): m_data(other.m_data),m_size(other.m_size){}
-            Vector(Vector<T>&& other): m_data(std::move(other.m_data)),m_size(other.m_size){}
+            Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}            
         private:
-            const std::shared_ptr<T> m_data;
+            std::shared_ptr<T> m_data;
             size_t m_size;
     };
     
@@ -119,13 +113,11 @@ namespace nn {
 
         public:
             Matrix(const std::shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {}
-            Matrix(const Matrix<T>& other): m_data(other.m_data),m_row(other.m_row),m_col(other.m_col){}
-            Matrix(Matrix<T>&& other): m_data(std::move(other.m_data)),m_row(other.m_row),m_col(other.m_col){}
             
         private:
-	        const std::shared_ptr<T> m_data;
-	        const size_t m_row;
-	        const size_t m_col;
+	        std::shared_ptr<T> m_data;
+	        size_t m_row;
+	        size_t m_col;
     };
 
     //Defines a layer of neural network.
@@ -145,9 +137,7 @@ namespace nn {
             HiddenLayer(const Matrix<T>& W, const Vector<T>& b, std::function<T(const T&)>&  activationFunc): m_W(W), m_b(b),m_activationFunc(activationFunc){
                 ASSERT(W.row() == b.size(),"W and b");               
             }
-            HiddenLayer(const HiddenLayer<T>& other): m_W(other.m_W), m_b(other.m_b),m_activationFunc(other.m_activationFunc){}
-            HiddenLayer(HiddenLayer<T>&& other): m_W(std::move(other.m_W)), m_b(std::move(other.m_b)),m_activationFunc(other.m_activationFunc){}           
-
+           
         public:
             virtual Vector<T> calc(const  Vector<T>& input) const {               
                 Vector<T> r = m_W.multiply(input);
@@ -159,7 +149,7 @@ namespace nn {
         private:
             Matrix<T> m_W;
             Vector<T> m_b;
-            const std::function<T(const T&)> m_activationFunc;
+            std::function<T(const T&)> m_activationFunc;
     };
     
     //Defines embedding list.
@@ -172,12 +162,10 @@ namespace nn {
             }
             
         public:
-            Embeddings(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}
-            Embeddings(const Embeddings<T>& other): m_embeddings(other.m_embeddings){}
-            Embeddings(Embeddings<T>&& other): m_embeddings(std::move(other.m_embeddings)){}
+            Embeddings(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}           
             
         private:
-            const std::vector<Matrix<T>> m_embeddings;     
+            std::vector<Matrix<T>> m_embeddings;     
     };
     
     typedef unsigned int UINT;
@@ -191,11 +179,9 @@ namespace nn {
 
         protected:
             Input(const Matrix<T>& embedding): m_embedding(embedding){}
-            Input(const Input<T>& other): m_embedding(other.m_embedding){}
-            Input(Input<T>&& other): m_embedding(std::move(other.m_embedding)){}
-            
+           
         protected:
-            const Matrix<T> m_embedding;
+            Matrix<T> m_embedding;
     };
     
     //Id of the symbol for padding
@@ -236,9 +222,7 @@ namespace nn {
                 for(auto &id:idSequence){
                     ASSERT(id>=0 && id < embedding.row(),"id");
                 }
-            }
-            SequenceInput(const SequenceInput<T>& other): Input<T>(other.m_embedding), m_idSequence(other.m_idSequence), m_contextLength(other.m_contextLength){}
-            SequenceInput(SequenceInput<T>&& other): Input<T>(std::move(other.m_embedding)), m_idSequence(std::move(other.m_idSequence)), m_contextLength(other.m_contextLength){}
+            }           
 
         private:
             void generateConcatenatedVector(Vector<T>& v, UINT pos) const {                
@@ -257,8 +241,8 @@ namespace nn {
             }
 
         private:
-	        const std::vector<UINT> m_idSequence;
-            const size_t m_contextLength;
+	        std::vector<UINT> m_idSequence;
+            size_t m_contextLength;
     };
     
     //Defines a non-sequence input. A non-sequence input has an embedding table, and a symbol id.
@@ -282,11 +266,9 @@ namespace nn {
             NonSequenceInput(const UINT id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
                 ASSERT(id>=0 && id < embedding.row(),"id");
             }
-            NonSequenceInput(const NonSequenceInput<T>& other):Input<T>(other.m_embedding),m_id(other.m_id){}            
-            NonSequenceInput(NonSequenceInput<T>&& other):Input<T>(other.m_embedding),m_id(other.m_id){} 
-             
+                         
         private:
-	        const UINT m_id;
+	        UINT m_id;
     };
 
     //Defins the input layer of neural network, which consists of a set of sequence/non-sequence inputs.
@@ -351,23 +333,20 @@ namespace nn {
     template <class T>
     class MLPNN: public NN<T, std::vector<std::reference_wrapper<Input<T>>>> {
         public:
-            virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& input) const {
-                //thread safe
-                Vector<T> v = m_inputLayer.calc(input);
+            virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& input) const {               
+                Vector<T> v = m_inputLayer.get()->calc(input);
                 for(auto &layer: m_layers){
-                    v=layer.get().calc(v);
+                    v=layer.get()->calc(v);
                 }
                 return v;
             }
 
         public:
-            MLPNN(const InputLayer<T>& inputLayer, const std::vector<Layer<T, Vector<T>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}
-            MLPNN(const MLPNN<T>& other):m_inputLayer(other.m_inputLayer), m_layers(other.m_layers){}
-            MLPNN(MLPNN<T>&& other):m_inputLayer(std::move(other.m_inputLayer)), m_layers(std::move(other.m_layers)){}
+            MLPNN(const std::shared_ptr<InputLayer<T>>& inputLayer, const std::vector<std::shared_ptr<Layer<T, Vector<T>>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}   
                         
         private:
-            const InputLayer<T> m_inputLayer;
-            const std::vector<Layer<T, Vector<T>>> m_layers;
+            std::shared_ptr<InputLayer<T>> m_inputLayer;
+            std::vector<std::shared_ptr<Layer<T, Vector<T>>>> m_layers;
     };
     
     //Defines common activation functions

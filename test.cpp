@@ -8,15 +8,9 @@ bool equals (const T& t1, const T& t2){
     return abs(t1-t2) <= 0.000001;
 }
 
-void vectorPlusTest(){
-    float* t = new float[2];
-    t[0]=0.5;
-    t[1]=0.5;  
-    Vector<float> v1(shared_ptr<float>(t),2);     
-    t = new float[2];
-    t[0]=0.2;
-    t[1]=0.3; 
-    Vector<float> v(shared_ptr<float>(t),2); 
+void vectorPlusTest(){  
+    Vector<float> v1(shared_ptr<float>(new float[2]{0.5,0.5}),2);   
+    Vector<float> v(shared_ptr<float>(new float[2]{0.2,0.3}),2); 
     v.plus(v1);
     ASSERT(v.size() == 2, "v");
     ASSERT(equals(v.data().get()[0] , 0.7f), "v");
@@ -24,10 +18,7 @@ void vectorPlusTest(){
 }
 
 void vectorApplyTest(){
-    auto t = new float[2];
-    t[0]=0.5;
-    t[1]=0.6;  
-    Vector<float> v(shared_ptr<float>(t),2);  
+    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.6}),2);  
     auto inc=[](const float& t) {return t+1;};   
     v.apply(inc);
     ASSERT(v.size() == 2, "v");
@@ -36,33 +27,15 @@ void vectorApplyTest(){
 }
 
 void vectorAggregateTest(){
-    auto t = new float[2];
-    t[0]=0.5;
-    t[1]=0.6;  
-    Vector<float> v(shared_ptr<float>(t),2);  
+    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.6}),2);  
     auto sum=[](const float& t1, const float& t2) {return t1+t2;};     
     auto result=v.aggregate(sum,0);   
     ASSERT(equals(result , 1.1f), "result");  
 }
 
 void matrixMultiplyTest(){
-    auto t = new float[2*3];
-    //first row: 1 2 3 
-    t[0]=1;
-    t[1]=2;
-    t[2]=3;
-    //second row: 4 5 6
-    t[3]=4;
-    t[4]=5;
-    t[5]=6;
-    Matrix<float> m(shared_ptr<float>(t),2,3);
-    
-    t = new float[3];
-    t[0]=0.1;
-    t[1]=0.2; 
-    t[2]=0.3;      
-    Vector<float> v(shared_ptr<float>(t),3);  
-    
+    Matrix<float> m(shared_ptr<float>(new float[2*3]{1,2,3,4,5,6}),2,3);    
+    Vector<float> v(shared_ptr<float>(new float[3]{0.1,0.2,0.3}),3);      
     auto r=m.multiply(v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
@@ -70,29 +43,11 @@ void matrixMultiplyTest(){
 }
 
 void hiddenLayerTest(){
-    auto t = new float[2*3];
-    //first row: 1 2 3 
-    t[0]=1;
-    t[1]=2;
-    t[2]=3;
-    //second row: 4 5 6
-    t[3]=4;
-    t[4]=5;
-    t[5]=6;
-    Matrix<float> W(shared_ptr<float>(t),2,3);
-    
-    t=new float[2];
-    t[0]=1.5;
-    t[1]=1.8;
-    Vector<float> b(shared_ptr<float>(t),2);
-    function<float(const float&)> func=ActivationFunctions<float>::Tanh;  
-    HiddenLayer<float> layer(W,b,func);     
-    t = new float[3];
-    t[0]=0.1;
-    t[1]=0.2; 
-    t[2]=0.3;      
-    Vector<float> v(shared_ptr<float>(t),3);  
-    
+    Matrix<float> W(shared_ptr<float>(new float[2*3]{1,2,3,4,5,6}),2,3);   
+    Vector<float> b(shared_ptr<float>(new float[2]{1.5,1.8}),2);
+    function<float(const float&)> func(ActivationFunctions<float>::Tanh);  
+    HiddenLayer<float> layer(W,b,func);    
+    Vector<float> v(shared_ptr<float>(new float[3]{0.1,0.2,0.3}),3);      
     auto r=layer.calc(v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , tanh(2.9f)), "r[0]");
@@ -100,19 +55,7 @@ void hiddenLayerTest(){
 }
 
 void sequenceInputTest(){
-    //defines one embedding
-    //three rows: 0 1 2
-    auto t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.1;
-    t[3]=0.2;
-    
-    t[4]=0.3;
-    t[5]=0.4;
-    
-    Matrix<float> E(shared_ptr<float>(t),3,2);
+    Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
     std::vector<UINT> idSequence = { 0,2 };
     SequenceInput<float> input(idSequence,1,E);
     auto r=input.get();
@@ -126,17 +69,7 @@ void sequenceInputTest(){
 }
 
 void nonSequenceInputTest(){
-    auto t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.1;
-    t[3]=0.2;
-    
-    t[4]=0.3;
-    t[5]=0.4;
-    
-    Matrix<float> E(shared_ptr<float>(t),3,2);
+    Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
     NonSequenceInput<float> input(2,E);
     auto r=input.get();
     ASSERT(r.size() == 2, "r");
@@ -145,35 +78,12 @@ void nonSequenceInputTest(){
 }
 
 void inputLayerTest(){
-    auto t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.1;
-    t[3]=0.2;
-    
-    t[4]=0.3;
-    t[5]=0.4;
-    
-    Matrix<float> E1(shared_ptr<float>(t),3,2);
+    Matrix<float> E1(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
     std::vector<UINT> idSequence = { 0,2 };
     SequenceInput<float> sequenceInput(idSequence,1,E1);
-    
-    t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.3;
-    t[3]=0.8;
-    
-    t[4]=0.2;
-    t[5]=0.9;
-    
-    Matrix<float> E2(shared_ptr<float>(t),3,2);
-    NonSequenceInput<float> nonSequenceInput(2,E2); 
-     
-    vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};
-    
+    Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
+    NonSequenceInput<float> nonSequenceInput(2,E2);
+    vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};    
     InputLayer<float> layer;
     auto r =layer.calc(inputs);
     ASSERT(r.size() == 2*3+2, "r");
@@ -187,47 +97,35 @@ void inputLayerTest(){
     ASSERT(equals(r.data().get()[7] , 0.9f), "r");  
 }
 
-void MLPNNTest(){
-    //define two embeddings
-    auto t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.1;
-    t[3]=0.2;
-    
-    t[4]=0.3;
-    t[5]=0.4;
-    
-    Matrix<float> E1(shared_ptr<float>(t),3,2);
-    
-    t = new float[3*2]; 
-    t[0]=0;
-    t[1]=0;
-    
-    t[2]=0.3;
-    t[3]=0.8;
-    
-    t[4]=0.2;
-    t[5]=0.9;
-    
-    Matrix<float> E2(shared_ptr<float>(t),3,2);
-    
-    Embeddings<float> embeddings ({E1,E2});
-}
-
-void softmaxLayerTest(){
-    float* t = new float[2];
-    t[0]=0.5;
-    t[1]=0.5;
-    shared_ptr<float> data(t);     
+void softmaxLayerTest(){   
+    shared_ptr<float> data(new float[2]{0.5,0.5});     
     Vector<float> input(data,2);  
-    //return input; 
     SoftmaxLayer<float> softmaxLayer;
     Vector<float> result = softmaxLayer.calc(input); 
     ASSERT(result.size() == 2, "result");  
     ASSERT(equals(result.data().get()[0] , 0.5f), "result");
     ASSERT(equals(result.data().get()[1] , 0.5f), "result");
+}
+
+void MLPNNTest(){   
+    Matrix<float> E1(shared_ptr<float>(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2);
+    Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9}),3,2);    
+    Embeddings<float> embeddings ({E1,E2});
+    shared_ptr<InputLayer<float>> inputLayer (new InputLayer<float>());   
+    Matrix<float> W(shared_ptr<float>(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
+    Vector<float> b(shared_ptr<float>(new float[2]{0.1,0.2}),2);
+    function<float(const float&)> tanh(ActivationFunctions<float>::Tanh );
+    std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
+        std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,tanh))
+    };    
+    MLPNN<float> nn(inputLayer, layers);  
+    SequenceInput <float> sequenceInput({0,2},1,embeddings.get(0));
+    NonSequenceInput<float> nonsequenceInput(2,embeddings.get(1));
+    vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonsequenceInput};    
+    auto r=nn.calc(inputs);  
+    ASSERT(r.size() == 2, "r");      
+    ASSERT(equals(r.data().get()[0] ,tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1)), "r");
+    ASSERT(equals(r.data().get()[1] ,tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2)), "r");    
 }
 
 int main( int argc, const char* argv[] )
