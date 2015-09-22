@@ -107,7 +107,7 @@ void softmaxLayerTest(){
     ASSERT(equals(result.data().get()[1] , 0.5f), "result");
 }
 
-void MLPNNTest(){   
+void MLPTest(){   
     Matrix<float> E1(shared_ptr<float>(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2);
     Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9}),3,2);    
     Embeddings<float> embeddings ({E1,E2});
@@ -139,5 +139,5 @@ int main( int argc, const char* argv[] )
     nonSequenceInputTest();
     inputLayerTest();
     softmaxLayerTest();
-    MLPNNTest();
+    MLPTest();
 }

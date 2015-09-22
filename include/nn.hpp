@@ -27,29 +27,29 @@ namespace nn {
     class Vector {
         public:
             //Performs element-wise add of this vector and an input vector. This vector is updated to hold the accumulated results.
-            void plus(const Vector<T>& v){
-                ASSERT(v.m_size==m_size,"v");
-                T* a=m_data.get();
-                const T* b=v.m_data.get();
+            void plus(const Vector<T>& vector){
+                ASSERT(vector.m_size==m_size,"vector");
+                T* elements=m_data.get();
+                const T* otherElements=vector.m_data.get();
                 for(size_t i=0;i<m_size;++i){
-                    a[i]+=b[i];
+                    elements[i]+=otherElements[i];
                 }
             }
             //Applys the unary function to each element of this vector. This vector is updated to reflect the application of the function.
             void apply(const std::function<T(const T&)>& func){               
-                T* a=m_data.get();
+                T* elements=m_data.get();
                 for(size_t i=0;i<m_size;++i){
-                    a[i]=func(a[i]);
+                    elements[i]=func(elements[i]);
                 }
             }
             //Aggegrates all elements of this vector into one element with an initial value and a binary function.
-     	    T aggregate(const std::function<T(const T&,const T&)>& func, const T& t0) const {               
-	            T t=t0;
-                T* a=m_data.get();
+     	    T aggregate(const std::function<T(const T&,const T&)>& func, const T& initialValue) const {               
+	            T aggregated=initialValue;
+                T* elements=m_data.get();
                 for(size_t i=0;i<m_size;++i){
-                    t=func(t,a[i]);
+                    aggregated=func(aggregated,elements[i]);
                 }
-                return t;
+                return aggregated;
             }
             //Returns the number of elements in this vector.
             size_t size() const {
@@ -62,14 +62,14 @@ namespace nn {
 
         public:
             //Appends the first vector to the second vector. The second vector must have enough internal element buffer to hold all elements of the first vector.
-            static void append(const Vector<T>& v,  Vector<T>& r){
-                if(v.m_size==0){
+            static void append(const Vector<T>& first,  Vector<T>& second){
+                if(first.m_size==0){
                     return;
                 }
                 //Move to the end of the internal elemeent buffer
-                T* a=r.m_data.get()+r.m_size;
-                memcpy (a, v.m_data.get(), sizeof(T)*v.m_size);
-                r.m_size += v.m_size;
+                T* buffer=second.m_data.get()+second.m_size;
+                memcpy (buffer, first.m_data.get(), sizeof(T)*first.m_size);
+                second.m_size += first.m_size;
             }
 
         public:
@@ -84,19 +84,19 @@ namespace nn {
     class Matrix {
         public:
             //Returns the column vector of M*v. v.size must equals to the col of this matrix.
-            Vector<T> multiply (const Vector<T>&  v) const {
-                ASSERT(m_col==v.size(),"v");
-                T* a=v.data().get();
-                T* y=new T[m_row];
-                T* M=m_data.get();
+            Vector<T> multiply (const Vector<T>& vector) const {
+                ASSERT(m_col==vector.size(),"v");
+                T* inputElements=vector.data().get();
+                T* outputElements=new T[m_row];
+                T* matrix=m_data.get();
                 for(size_t i=0;i<m_row;++i){
-                    y[i]=0;
-                    T* b=M+i*m_col;
+                    outputElements[i]=0;
+                    T* matrixElements=matrix+i*m_col;
                     for(size_t j=0;j<m_col;++j){
-                        y[i]+=a[j]*b[j];
+                        outputElements[i]+=inputElements[j]*matrixElements[j];
                     }
                 }              
-                return Vector<T> (std::shared_ptr<T>(y), m_row);            
+                return Vector<T> (std::shared_ptr<T>(outputElements), m_row);            
             }
             //Returns the number of rows of this matrix.
             size_t row() const {
@@ -134,21 +134,21 @@ namespace nn {
         public:
             //W: output*input matrix
             //b: bias vector with size being the number of output nodes
-            HiddenLayer(const Matrix<T>& W, const Vector<T>& b, std::function<T(const T&)>&  activationFunc): m_W(W), m_b(b),m_activationFunc(activationFunc){
-                ASSERT(W.row() == b.size(),"W and b");               
+            HiddenLayer(const Matrix<T>& weights, const Vector<T>& bias, std::function<T(const T&)>&  activationFunc): m_weights(weights), m_bias(bias),m_activationFunc(activationFunc){
+                ASSERT(weights.row() == bias.size(),"weights and bias");               
             }
            
         public:
             virtual Vector<T> calc(const  Vector<T>& input) const {               
-                Vector<T> r = m_W.multiply(input);
-                r.plus(m_b);
-                r.apply(m_activationFunc);
-                return r;
+                Vector<T> output = m_weights.multiply(input);
+                output.plus(m_bias);
+                output.apply(m_activationFunc);
+                return output;
             }
 
         private:
-            Matrix<T> m_W;
-            Vector<T> m_b;
+            Matrix<T> m_weights;
+            Vector<T> m_bias;
             std::function<T(const T&)> m_activationFunc;
     };
     
@@ -194,18 +194,18 @@ namespace nn {
             virtual Vector<T> get() const {                
                 //generate a vector for each text window
                 size_t dimension = size();             
-                Vector<T> v(std::shared_ptr<T>(new T[dimension]),dimension);                
-                Vector<T> r(std::shared_ptr<T>(new T[dimension]),dimension);
-                memset (r.data().get(),0,sizeof(T)*dimension);    
+                Vector<T> concatenationBuffer(std::shared_ptr<T>(new T[dimension]),dimension);                
+                Vector<T> output(std::shared_ptr<T>(new T[dimension]),dimension);
+                memset (output.data().get(),0,sizeof(T)*dimension);    
                 size_t countOfIds=m_idSequence.size();
                 for(size_t pos=0;pos<countOfIds;++pos){
-                    generateConcatenatedVector(v,pos);       
-                    r.plus(v);       
+                    generateConcatenatedVector(concatenationBuffer,pos);       
+                    output.plus(concatenationBuffer);       
                 }
                 //average pooling
                 auto divide=[countOfIds](const T& t){return t/countOfIds;}; 
-                r.apply(divide);
-                return r;
+                output.apply(divide);
+                return output;
             }
             //Returns the dimension of the input vector associated with this sequence input.
             virtual size_t  size() const {
@@ -223,9 +223,9 @@ namespace nn {
             }           
 
         private:
-            void generateConcatenatedVector(Vector<T>& v, size_t pos) const {                
-                T* E=Input<T>::m_embedding.data().get();
-                T* c=v.data().get();
+            void generateConcatenatedVector(Vector<T>& concatenationBuffer, size_t pos) const {                
+                T* embeddingBuffer=Input<T>::m_embedding.data().get();
+                T* buffer=concatenationBuffer.data().get();
                 size_t col=Input<T>::m_embedding.col();
                 size_t size=m_idSequence.size();
                 //note: size_t is unsigned int
@@ -233,8 +233,8 @@ namespace nn {
                 int end=pos+m_contextLength;                
                 for(int i=start;i<=end;++i) {
                     size_t id=i>=0 && i < size ? m_idSequence[i]:PADDING_ID;                  
-                    memcpy(c, E+id*col, sizeof(T)*col);
-                    c+= col;
+                    memcpy(buffer, embeddingBuffer+id*col, sizeof(T)*col);
+                    buffer+= col;
                 }
             }
 
@@ -249,11 +249,10 @@ namespace nn {
         public:
             virtual Vector<T> get() const {
                 size_t size=Input<T>::m_embedding.col();
-                T* a=new T[size];
-                std::shared_ptr<T> data(a);
-                T* E=Input<T>::m_embedding.data().get();
-                memcpy(a, E+m_id*size, sizeof(T)*size);
-                return Vector<T> (data,size);
+                T* buffer=new T[size];              
+                T* embedding=Input<T>::m_embedding.data().get();
+                memcpy(buffer, embedding+m_id*size, sizeof(T)*size);
+                return Vector<T> ( std::shared_ptr<T>(buffer),size);
             }
 
             virtual size_t  size() const {
@@ -274,20 +273,20 @@ namespace nn {
     class InputLayer: public Layer<T, std::vector<std::reference_wrapper<Input<T>>>>{
         public:
             //Returns the input vector calculated based on sequence/non-sequence inputs.
-            virtual Vector<T> calc(const  std::vector<std::reference_wrapper<Input<T>>>& input) const {                
+            virtual Vector<T> calc(const  std::vector<std::reference_wrapper<Input<T>>>& inputs) const {                
                 //dimension of the input vector
                 size_t size=0;
-                for (auto &i:input){
-                    size+=i.get().size();
+                for (auto &input:inputs){
+                    size+=input.get().size();
                 }
                 //the output vector has enough element buffer but zero length
                 std::shared_ptr<T> data(new T[size]);
-                Vector<T> r(data,0);
-                for (auto &i:input) {
+                Vector<T> output(data,0);
+                for (auto &input:inputs) {
                     //append to the output vector
-                    Vector<T>::append(i.get().get(), r);
+                    Vector<T>::append(input.get().get(), output);
                 }
-                return r;
+                return output;
             }
     };
 
@@ -299,24 +298,24 @@ namespace nn {
                 ASSERT(input.size() > 0, "input");
                 //ref to: http://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
                 size_t size=input.size();
-                T* t=input.data().get();
-                T max=t[0];
+                T* inputElements=input.data().get();
+                T max=inputElements[0];
                 for(size_t i=1;i<size;++i){
-                    if(max<t[i]){
-                        max=t[i];
+                    if(max<inputElements[i]){
+                        max=inputElements[i];
                     }
                 }
                 double expSum=0;
                 for(size_t i=0;i<size;++i){
-                    expSum+=exp(t[i]-max);
+                    expSum+=exp(inputElements[i]-max);
                 }
                 double logExpSum=max+log(expSum);
-                T* a=new T[size];
+                T* outputElements=new T[size];
                 for(size_t i=0;i<size;++i){
-                    a[i]=exp(t[i]-logExpSum);
+                    outputElements[i]=exp(inputElements[i]-logExpSum);
                 }               
                 //optimized by compiler so that no temporal object is generated
-                return Vector<T>(std::shared_ptr<T>(a),size);
+                return Vector<T>(std::shared_ptr<T>(outputElements),size);
             }
     };
     
@@ -324,19 +323,19 @@ namespace nn {
     template <class T, class I>
     class NN {
         public:
-            virtual Vector<T> calc(const I& input) const = 0;            
+            virtual Vector<T> calc(const I& inputs) const = 0;            
     };
 
     //Defines a multiple layer neural network, consisting of an input layer and a list of other layers.
     template <class T>
     class MLP: public NN<T, std::vector<std::reference_wrapper<Input<T>>>> {
         public:
-            virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& input) const {               
-                Vector<T> v = m_inputLayer.get()->calc(input);
+            virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& inputs) const {               
+                Vector<T> output = m_inputLayer.get()->calc(inputs);
                 for(auto &layer: m_layers){
-                    v=layer.get()->calc(v);
+                    output=layer.get()->calc(output);
                 }
-                return v;
+                return output;
             }
 
         public:
