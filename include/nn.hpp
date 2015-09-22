@@ -192,7 +192,7 @@ namespace nn {
     class SequenceInput: public Input<T> {
         public:
             virtual Vector<T> get() const {                
-                //generate a vectors for each text window
+                //generate a vector for each text window
                 size_t dimension = size();             
                 Vector<T> v(std::shared_ptr<T>(new T[dimension]),dimension);                
                 Vector<T> r(std::shared_ptr<T>(new T[dimension]),dimension);
@@ -310,10 +310,10 @@ namespace nn {
                 for(size_t i=0;i<size;++i){
                     expSum+=exp(t[i]-max);
                 }
-                double logExpSum=max + log(expSum);
+                double logExpSum=max+log(expSum);
                 T* a=new T[size];
                 for(size_t i=0;i<size;++i){
-                    a[i]=exp(t[i] - logExpSum);
+                    a[i]=exp(t[i]-logExpSum);
                 }               
                 //optimized by compiler so that no temporal object is generated
                 return Vector<T>(std::shared_ptr<T>(a),size);
