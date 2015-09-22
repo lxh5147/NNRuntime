@@ -118,7 +118,7 @@ void MLPNNTest(){
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
         std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,tanh))
     };    
-    MLPNN<float> nn(inputLayer, layers);  
+    MLP<float> nn(inputLayer, layers);  
     SequenceInput <float> sequenceInput({0,2},1,embeddings.get(0));
     NonSequenceInput<float> nonsequenceInput(2,embeddings.get(1));
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonsequenceInput};    

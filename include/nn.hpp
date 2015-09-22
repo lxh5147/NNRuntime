@@ -329,7 +329,7 @@ namespace nn {
 
     //Defines a multiple layer neural network, consisting of an input layer and a list of other layers.
     template <class T>
-    class MLPNN: public NN<T, std::vector<std::reference_wrapper<Input<T>>>> {
+    class MLP: public NN<T, std::vector<std::reference_wrapper<Input<T>>>> {
         public:
             virtual Vector<T> calc(const std::vector<std::reference_wrapper<Input<T>>>& input) const {               
                 Vector<T> v = m_inputLayer.get()->calc(input);
@@ -340,7 +340,7 @@ namespace nn {
             }
 
         public:
-            MLPNN(const std::shared_ptr<InputLayer<T>>& inputLayer, const std::vector<std::shared_ptr<Layer<T, Vector<T>>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}   
+            MLP(const std::shared_ptr<InputLayer<T>>& inputLayer, const std::vector<std::shared_ptr<Layer<T, Vector<T>>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}   
                         
         private:
             std::shared_ptr<InputLayer<T>> m_inputLayer;
