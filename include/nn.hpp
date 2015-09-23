@@ -200,60 +200,6 @@ namespace nn {
             virtual const void calc(T&,Itorator<T>&,T&) const=0;
     };
     
-    template<class T>
-    void plus(T& target,const T& other){
-        target.plus(other);
-    }
-    
-    template<class T,class U>
-    void divide(T& target, U denominator){
-        target.divide(denominator);
-    }
-
-    template<class T>
-    void max(T& target,const T& other){
-        target.max(other);
-    }
-    
-    template<class T>
-    class AveragePooling: public Pooling<T> {
-        public:
-            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const { 
-                bool hasElement = it.next(output);
-                ASSERT(hasElement,"it");               
-                size_t total=1;                
-                while(it.next(buffer)){
-                    ++total;
-                    plus<T>(output,buffer);
-                }             
-                divide<T,size_t>(output,total);               
-            }
-    };
-    
-    template<class T>
-    class SumPooling: public Pooling<T> {
-        public:
-            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {
-                bool hasElement = it.next(output);
-                ASSERT(hasElement,"it");                
-                while(it.next(buffer)){                 
-                    plus<T>(output,buffer);
-                }              
-            }
-    }; 
-    
-    template<class T>
-    class MaxPooling: public Pooling<T> {
-        public:
-            virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {  
-                bool hasElement = it.next(output);
-                ASSERT(hasElement,"it");   
-                while(it.next(buffer)){                 
-                    max<T>(output,buffer);
-                }  
-            }
-    }; 
-    
     //Defines input for neural network.
     template<class T>
     class Input {
@@ -272,6 +218,67 @@ namespace nn {
     const size_t PADDING_ID = 1;
     //Id of out-of-vocabulary symbol
     const size_t UNK_ID = 0;
+       
+    template<class T>
+    class Poolings {
+        private:           
+            static void plus(T& target,const T& other){
+                target.plus(other);
+            }  
+            template<class U>          
+            static void divide(T& target, U denominator){
+                target.divide(denominator);
+            }
+            static void max(T& target,const T& other){
+                target.max(other);
+            }          
+            class AveragePooling: public Pooling<T> {
+                public:
+                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const { 
+                        bool hasElement = it.next(output);
+                        ASSERT(hasElement,"it");               
+                        size_t total=1;                
+                        while(it.next(buffer)){
+                            ++total;
+                            plus(output,buffer);
+                        }             
+                        divide<size_t>(output,total);               
+                    }
+            };           
+            class SumPooling: public Pooling<T> {
+                public:
+                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {
+                        bool hasElement = it.next(output);
+                        ASSERT(hasElement,"it");                
+                        while(it.next(buffer)){                 
+                            plus(output,buffer);
+                        }              
+                    }
+            };           
+            class MaxPooling: public Pooling<T> {
+                public:
+                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {  
+                        bool hasElement = it.next(output);
+                        ASSERT(hasElement,"it");   
+                        while(it.next(buffer)){                 
+                            max(output,buffer);
+                        }  
+                    }
+            };            
+        public:        
+            const static Pooling<T>&  AVG(){
+                static  AveragePooling instance;
+                return instance;
+            } 
+            const static Pooling<T>&  SUM(){
+                static  SumPooling instance;
+                return instance;
+            } 
+            const static Pooling<T>&  MAX(){
+                static  MaxPooling instance;
+                return instance;
+            }                  
+    }; 
     
     //Defines a sequence input. A sequence input has an embedding table, a text window size and a sequence of symbol ids. An embedding table is a matrix, with its i^th row reresenting the embedding of the i^th symbol.
     template<class T>

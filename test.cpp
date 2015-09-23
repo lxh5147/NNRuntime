@@ -56,9 +56,8 @@ void hiddenLayerTest(){
 
 void sequenceInputTest(){
     Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
-    std::vector<size_t> idSequence = { 0,2 };
-    AveragePooling<Vector<float>> pooling;   
-    SequenceInput<float> input(idSequence,1,E,pooling);
+    std::vector<size_t> idSequence = { 0,2 };  
+    SequenceInput<float> input(idSequence,1,E,Poolings<Vector<float>>::AVG());
     auto r=input.get();
     ASSERT(r.size() == 2*3, "r");
     ASSERT(equals(r.data().get()[0] , 0.05f), "r");
@@ -80,9 +79,8 @@ void nonSequenceInputTest(){
 
 void inputLayerTest(){
     Matrix<float> E1(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
-    std::vector<size_t> idSequence = { 0,2 };
-    AveragePooling<Vector<float>> pooling;   
-    SequenceInput<float> sequenceInput(idSequence,1,E1,pooling);
+    std::vector<size_t> idSequence = { 0,2 };    
+    SequenceInput<float> sequenceInput(idSequence,1,E1,Poolings<Vector<float>>::AVG());
     Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
     NonSequenceInput<float> nonSequenceInput(2,E2);
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};    
@@ -117,14 +115,14 @@ void MLPTest(){
     Matrix<float> W(shared_ptr<float>(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
     Vector<float> b(shared_ptr<float>(new float[2]{0.1,0.2}),2);
     function<float(const float&)> tanh(ActivationFunctions<float>::Tanh );
-    AveragePooling<Vector<float>> pooling;   
+   
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
         std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,tanh))
-    };    
-    MLP<float> nn(inputLayer, layers);  
-    SequenceInput <float> sequenceInput({0,2},1,embeddings.get(0),pooling);
+    }; 
+    SequenceInput <float> sequenceInput({0,2},1,embeddings.get(0),Poolings<Vector<float>>::AVG());
     NonSequenceInput<float> nonsequenceInput(2,embeddings.get(1));
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonsequenceInput};    
+    MLP<float> nn(inputLayer, layers); 
     auto r=nn.calc(inputs);  
     ASSERT(r.size() == 2, "r");      
     ASSERT(equals(r.data().get()[0] ,tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1)), "r");
