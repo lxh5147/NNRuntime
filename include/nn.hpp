@@ -35,7 +35,7 @@ namespace nn {
                     elements[i]+=otherElements[i];
                 }
             }
-            
+            //Performs element-wise divide. This vector is updated to hold the updated results.
             void divide(T denominator){
                 ASSERT(denominator!=0,"denominator");
                 T* elements=m_data.get();
@@ -43,7 +43,7 @@ namespace nn {
                     elements[i]/=denominator;
                 }                
             }
-
+            //Performs element-wise max. This vector is updated to hold the updated results.
             void max(const Vector<T>& vector){
                 ASSERT(vector.m_size==m_size,"vector");
                 T* elements=m_data.get();
@@ -54,7 +54,6 @@ namespace nn {
                     }                    
                 }
             }
-
             //Applys the unary function to each element of this vector. This vector is updated to reflect the application of the function.
             void apply(const std::function<T(const T&)>& func){               
                 T* elements=m_data.get();
@@ -79,7 +78,6 @@ namespace nn {
             const std::shared_ptr<T>& data() const {
                 return m_data;
             }
-
         public:
             //Appends the first vector to the second vector. The second vector must have enough internal element buffer to hold all elements of the first vector.
             static void append(const Vector<T>& first,  Vector<T>& second){
@@ -91,9 +89,8 @@ namespace nn {
                 memcpy (buffer, first.m_data.get(), sizeof(T)*first.m_size);
                 second.m_size += first.m_size;
             }
-
         public:
-            Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}            
+            Vector(const std::shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}    
         private:
             std::shared_ptr<T> m_data;
             size_t m_size;
@@ -130,10 +127,8 @@ namespace nn {
             const std::shared_ptr<T>& data() const {
                 return m_data;
             }
-
         public:
             Matrix(const std::shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {}
-            
         private:
 	        const std::shared_ptr<T> m_data;
 	        const size_t m_row;
@@ -154,10 +149,9 @@ namespace nn {
         public:
             //W: output*input matrix
             //b: bias vector with size being the number of output nodes
-            HiddenLayer(const Matrix<T>& weights, const Vector<T>& bias, std::function<T(const T&)>&  activationFunc): m_weights(weights), m_bias(bias),m_activationFunc(activationFunc){
+            HiddenLayer(const Matrix<T>& weights, const Vector<T>& bias, const std::function<T(const T&)>&  activationFunc): m_weights(weights), m_bias(bias),m_activationFunc(activationFunc){
                 ASSERT(weights.row() == bias.size(),"weights and bias");               
-            }
-           
+            }          
         public:
             virtual Vector<T> calc(const  Vector<T>& input) const {               
                 Vector<T> output = m_weights.multiply(input);
@@ -165,11 +159,10 @@ namespace nn {
                 output.apply(m_activationFunc);
                 return output;
             }
-
         private:
-            const Matrix<T> m_weights;
-            const Vector<T> m_bias;
-            const std::function<T(const T&)> m_activationFunc;
+            const Matrix<T>& m_weights;
+            const Vector<T>& m_bias;
+            const std::function<T(const T&)>& m_activationFunc;
     };
     
     //Defines embedding list.
@@ -179,25 +172,27 @@ namespace nn {
             const Matrix<T>& get(size_t i) const {
                 ASSERT(i<m_embeddings.size(),"i");
                 return m_embeddings[i];
-            }
-            
+            }            
         public:
             Embeddings(const std::vector<Matrix<T>>& embeddings): m_embeddings(embeddings){}           
-            
         private:
             const std::vector<Matrix<T>> m_embeddings;     
     };
-            
+    
+    //Defines iterator interface.        
     template<class T>
-    class Itorator{
-        public:           
+    class Iterator{
+        public:
+            //If next element is available, it will return true and load next element into buffer; otherwise return false.           
             virtual bool next(T&)=0;
     };
     
+    //Defines pooling interface.
     template<class T>
     class Pooling {
         public:
-            virtual const void calc(T&,Itorator<T>&,T&) const=0;
+            //Calculates the pooled value. It uses a buffer to hold the pooled value, and another buffer to hold the value read from iterator.
+            virtual const void calc(T&,Iterator<T>&,T&) const=0;
     };
     
     //Defines input for neural network.
@@ -206,35 +201,54 @@ namespace nn {
         public:
             virtual Vector<T> get() const =0;
             virtual size_t  size() const =0;
-
         protected:
             Input(const Matrix<T>& embedding): m_embedding(embedding){}
-           
         protected:
-            Matrix<T> m_embedding;
+            const Matrix<T>& m_embedding;
     };
     
     //Id of the symbol for padding
     const size_t PADDING_ID = 1;
     //Id of out-of-vocabulary symbol
     const size_t UNK_ID = 0;
-       
+    
+    //Defines pooling strategies.   
     template<class T>
-    class Poolings {
-        private:           
+    class Poolings {                     
+        public:  
+            //Returns global avg pooling strategy.      
+            static const Pooling<T>&  AVG(){
+                static  AveragePooling instance;
+                return instance;
+            } 
+            //Returns global sum pooling strategy.            
+            static const Pooling<T>&  SUM(){
+                static  SumPooling instance;
+                return instance;
+            } 
+            //Returns global max pooling strategy.            
+            const static Pooling<T>&  MAX(){
+                static  MaxPooling instance;
+                return instance;
+            }       
+        private:  
+            //assume plus method is defined by T.         
             static void plus(T& target,const T& other){
                 target.plus(other);
             }  
+            //assume divide method is defined by T.
             template<class U>          
             static void divide(T& target, U denominator){
                 target.divide(denominator);
             }
+            //assume max method is defined by T.            
             static void max(T& target,const T& other){
                 target.max(other);
-            }          
+            } 
+            //Average pooling strategy.         
             class AveragePooling: public Pooling<T> {
                 public:
-                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const { 
+                    virtual const void calc(T& output,Iterator<T>& it,T& buffer) const { 
                         bool hasElement = it.next(output);
                         ASSERT(hasElement,"it");               
                         size_t total=1;                
@@ -245,9 +259,10 @@ namespace nn {
                         divide<size_t>(output,total);               
                     }
             };           
+            //Sum pooling strategy.
             class SumPooling: public Pooling<T> {
                 public:
-                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {
+                    virtual const void calc(T& output,Iterator<T>& it,T& buffer) const {
                         bool hasElement = it.next(output);
                         ASSERT(hasElement,"it");                
                         while(it.next(buffer)){                 
@@ -255,32 +270,20 @@ namespace nn {
                         }              
                     }
             };           
+            //Max pooling strategy.
             class MaxPooling: public Pooling<T> {
                 public:
-                    virtual const void calc(T& output,Itorator<T>& it,T& buffer) const {  
+                    virtual const void calc(T& output,Iterator<T>& it,T& buffer) const {  
                         bool hasElement = it.next(output);
                         ASSERT(hasElement,"it");   
                         while(it.next(buffer)){                 
                             max(output,buffer);
                         }  
                     }
-            };            
-        public:        
-            const static Pooling<T>&  AVG(){
-                static  AveragePooling instance;
-                return instance;
-            } 
-            const static Pooling<T>&  SUM(){
-                static  SumPooling instance;
-                return instance;
-            } 
-            const static Pooling<T>&  MAX(){
-                static  MaxPooling instance;
-                return instance;
-            }                  
+            };                          
     }; 
     
-    //Defines a sequence input. A sequence input has an embedding table, a text window size and a sequence of symbol ids. An embedding table is a matrix, with its i^th row reresenting the embedding of the i^th symbol.
+    //Defines a sequence input. A sequence input has an embedding table, a text window size, a sequence of symbol ids and a pooling strategy. An embedding table is a matrix, with its i^th row reresenting the embedding of the i^th symbol.
     template<class T>
     class SequenceInput: public Input<T> {
         public:
@@ -291,13 +294,11 @@ namespace nn {
                 InputVectorIterator it(*this);
                 m_pooling.calc(output,it,buffer);  
                 return output;                             
-            }
-            
+            }            
             //Returns the dimension of the input vector associated with this sequence input.
             virtual size_t  size() const {
                 return  Input<T>::m_embedding.col() * (2*m_contextLength + 1 );
             }
-
         public:
             SequenceInput(const std::vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding, const Pooling<Vector<T>>& pooling):
                 Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength),m_pooling(pooling){
@@ -307,8 +308,8 @@ namespace nn {
                     ASSERT(id < embedding.row(),"id");
                 }
             }           
-
         private:
+            //Generates concatenated vector for the window with pos in the middle.
             void generateConcatenatedVector(Vector<T>& concatenationBuffer, size_t pos) const {                
                 T* embeddingBuffer=Input<T>::m_embedding.data().get();
                 T* buffer=concatenationBuffer.data().get();
@@ -323,14 +324,13 @@ namespace nn {
                     buffer+= col;
                 }
             }
-
         private:
 	        const std::vector<size_t> m_idSequence;
             const size_t m_contextLength;
-            const Pooling<Vector<T>>& m_pooling;
-            
+            const Pooling<Vector<T>>& m_pooling;            
         private:
-            class InputVectorIterator: public Itorator<Vector<T>>{
+            //Defines input vector iterator. Each input vector is a concatenated vector for a window.
+            class InputVectorIterator: public Iterator<Vector<T>>{
                 public:          
                     virtual bool next(Vector<T>& buffer) {
                         if(m_pos<m_sequenceInput.m_idSequence.size()){
@@ -340,11 +340,9 @@ namespace nn {
                         else{
                             return false;
                         }
-                    }
-                    
+                    }                    
                 public:
-                    InputVectorIterator(const SequenceInput<T>& sequenceInput):m_sequenceInput(sequenceInput),m_pos(0){}
-                    
+                    InputVectorIterator(const SequenceInput<T>& sequenceInput):m_sequenceInput(sequenceInput),m_pos(0){}                    
                 private:
                     const SequenceInput<T>& m_sequenceInput;
                     size_t m_pos;
@@ -362,16 +360,13 @@ namespace nn {
                 memcpy(buffer, embedding+m_id*size, sizeof(T)*size);
                 return Vector<T> ( std::shared_ptr<T>(buffer),size);
             }
-
             virtual size_t  size() const {
                 return  Input<T>::m_embedding.col();
             }
-
         public:
             NonSequenceInput(const size_t id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
                 ASSERT(id < embedding.row(),"id");
-            }
-                         
+            }                         
         private:
 	        size_t m_id;
     };
@@ -445,25 +440,32 @@ namespace nn {
                 }
                 return output;
             }
-
         public:
-            MLP(const std::shared_ptr<InputLayer<T>>& inputLayer, const std::vector<std::shared_ptr<Layer<T, Vector<T>>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}   
-                        
+            MLP(const std::shared_ptr<InputLayer<T>>& inputLayer, const std::vector<std::shared_ptr<Layer<T, Vector<T>>>>& layers):m_inputLayer(inputLayer), m_layers(layers){}      
         private:
             std::shared_ptr<InputLayer<T>> m_inputLayer;
             std::vector<std::shared_ptr<Layer<T, Vector<T>>>> m_layers;
     };
     
-    //Defines common activation functions
+    //Defines common activation functions.
     template <class T>
-    struct ActivationFunctions{
-        static T Tanh(const T& t){
-            return tanh(t);
-        }
-        
-        static T ReLU(const T& t){
-            return t>0?t:0;
-        }
+    class ActivationFunctions{
+        public:
+            static std::function<T(const T&)>& Tanh(){
+                static std::function<T(const T&)> instance(_Tanh);
+                return instance;
+            }
+            static std::function<T(const T&)>& ReLU(){
+                static std::function<T(const T&)> instance(_ReLU);
+                return instance;
+            }                        
+        private:
+            static T _Tanh(const T& t){
+                return tanh(t);
+            }            
+            static T _ReLU(const T& t){
+                return t>0?t:0;
+            }
     }; 
 }
 

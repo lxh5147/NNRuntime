@@ -3,8 +3,8 @@
 using namespace std;
 using namespace nn;
 
-template<typename T>
-bool equals (const T& t1, const T& t2){
+template<typename T, typename U>
+bool equals (const T& t1, const U& t2){
     return abs(t1-t2) <= 0.000001;
 }
 
@@ -15,6 +15,23 @@ void vectorPlusTest(){
     ASSERT(v.size() == 2, "v");
     ASSERT(equals(v.data().get()[0] , 0.7f), "v");
     ASSERT(equals(v.data().get()[1] , 0.8f), "v");      
+}
+
+void vectorDivideTest(){  
+    Vector<float> v(shared_ptr<float>(new float[2]{0.2,0.4}),2);       
+    v.divide(2);
+    ASSERT(v.size() == 2, "v");
+    ASSERT(equals(v.data().get()[0] , 0.1), "v");
+    ASSERT(equals(v.data().get()[1] , 0.2), "v");      
+}
+
+void vectorMaxTest(){  
+    Vector<float> v1(shared_ptr<float>(new float[2]{0.3,0.4}),2);   
+    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.1}),2); 
+    v.max(v1);
+    ASSERT(v.size() == 2, "v");
+    ASSERT(equals(v.data().get()[0] , 0.5), "v");
+    ASSERT(equals(v.data().get()[1] , 0.4), "v");      
 }
 
 void vectorApplyTest(){
@@ -44,9 +61,8 @@ void matrixMultiplyTest(){
 
 void hiddenLayerTest(){
     Matrix<float> W(shared_ptr<float>(new float[2*3]{1,2,3,4,5,6}),2,3);   
-    Vector<float> b(shared_ptr<float>(new float[2]{1.5,1.8}),2);
-    function<float(const float&)> func(ActivationFunctions<float>::Tanh);  
-    HiddenLayer<float> layer(W,b,func);    
+    Vector<float> b(shared_ptr<float>(new float[2]{1.5,1.8}),2);   
+    HiddenLayer<float> layer(W,b,ActivationFunctions<float>::Tanh());    
     Vector<float> v(shared_ptr<float>(new float[3]{0.1,0.2,0.3}),3);      
     auto r=layer.calc(v);
     ASSERT(r.size() == 2, "r");
@@ -114,10 +130,8 @@ void MLPTest(){
     shared_ptr<InputLayer<float>> inputLayer (new InputLayer<float>());   
     Matrix<float> W(shared_ptr<float>(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
     Vector<float> b(shared_ptr<float>(new float[2]{0.1,0.2}),2);
-    function<float(const float&)> tanh(ActivationFunctions<float>::Tanh );
-   
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
-        std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,tanh))
+        std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,ActivationFunctions<float>::Tanh()))
     }; 
     SequenceInput <float> sequenceInput({0,2},1,embeddings.get(0),Poolings<Vector<float>>::AVG());
     NonSequenceInput<float> nonsequenceInput(2,embeddings.get(1));
@@ -132,6 +146,8 @@ void MLPTest(){
 int main( int argc, const char* argv[] )
 {
     vectorPlusTest();
+    vectorDivideTest();
+    vectorMaxTest();
     vectorApplyTest();
     vectorAggregateTest();
     matrixMultiplyTest();
