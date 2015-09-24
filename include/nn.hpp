@@ -23,7 +23,7 @@ namespace nn {
                 std::exit(EXIT_FAILURE); \
             } \
         } while (false)
-    
+
     //Defines a vector. A vector consists of an array of elements and their size.  
     template <class T>
     class Vector {
