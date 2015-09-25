@@ -142,6 +142,10 @@ void MLPTest(){
     ASSERT(equals(r.data().get()[1] ,tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2)), "r");
 }
 
+void MLPModelTest(){
+    //save the model
+    
+}
 int main( int argc, const char* argv[] )
 {
     vectorPlusTest();

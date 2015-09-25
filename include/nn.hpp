@@ -513,11 +513,7 @@ namespace nn {
                 loadInputsInfo(is);
                 loadHiddenLayers(is);
                 is.close();
-                vector<shared_ptr<Layer<T, Vector<T>>>> layers;
-                layers.insert(layers.end(),m_hiddenLayers.begin(),m_hiddenLayers.end());
-                layers.push_back(shared_ptr<Layer<T, Vector<T>>>(new SoftmaxLayer<T>()));
-                m_pRuntime=new MLP<T>(shared_ptr<InputLayer<T>> (new InputLayer<T>()),layers);
-                ASSERT(m_pRuntime,"m_pRuntime");
+                initRuntime();
             }
             virtual void save(const char* modelPath) const{
                 ASSERT(modelPath,"modelPath");
@@ -534,6 +530,16 @@ namespace nn {
                 }
             }
         private:
+            void initRuntime(){
+                vector<shared_ptr<Layer<T, Vector<T>>>> layers;
+                size_t total=m_weights.size();
+                for(size_t i=0;i<total;++i){
+                    layers.push_back(shared_ptr<Layer<T, Vector<T>>>(new HiddenLayer<T>(*m_weights[i],*m_biasVectors[i],ActivationFunctions<T>::get(m_activationFunctionIds[i]))));
+                }
+                layers.push_back(shared_ptr<Layer<T, Vector<T>>>(new SoftmaxLayer<T>()));
+                m_pRuntime=new MLP<T>(shared_ptr<InputLayer<T>> (new InputLayer<T>()),layers);
+                ASSERT(m_pRuntime,"m_pRuntime");                
+            }
             void cleanIfNeeded(){
                  if(m_pRuntime==nullptr){
                     return;
@@ -541,7 +547,6 @@ namespace nn {
                 delete m_pRuntime;
                 m_pRuntime=nullptr;
                 m_inputsInfo.clear();
-                m_hiddenLayers.clear();
                 m_embeddings.clear();
                 m_weights.clear();
                 m_biasVectors.clear();
@@ -581,7 +586,6 @@ namespace nn {
                     m_weights.push_back(shared_ptr<Matrix<T>>(pMatrix));
                     m_biasVectors.push_back(shared_ptr<Vector<T>>(pBias));
                     m_activationFunctionIds.push_back(activationFunctionId);
-                    m_hiddenLayers.push_back(shared_ptr<HiddenLayer<T>>(new HiddenLayer<T>(*pMatrix,*pBias,ActivationFunctions<T>::get(activationFunctionId))));
                 }
             }
             Matrix<T>* loadMatrix(istream& is) const{
@@ -668,7 +672,6 @@ namespace nn {
         private:
             NN<T,vector<reference_wrapper<Input<T>>>> *m_pRuntime;
             vector<shared_ptr<InputInfo>> m_inputsInfo; 
-            vector<shared_ptr<HiddenLayer<T>>> m_hiddenLayers;
             vector<shared_ptr<Matrix<T>>> m_embeddings;
             vector<shared_ptr<Matrix<T>>> m_weights;
             vector<size_t> m_activationFunctionIds;
