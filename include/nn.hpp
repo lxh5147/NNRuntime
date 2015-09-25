@@ -492,7 +492,35 @@ namespace nn {
             //Predicts with ids as inputs.
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const=0;
     };
-
+    
+    //Defines input information.
+    template<class T>
+    class InputInfo{
+        public:
+            enum:int{SEQUENCE_INPUT=0,NON_SEQUENCE_INPUT=1};
+        public:
+            shared_ptr<Input<T>> getInput(const vector<size_t>& ids) const{
+                ASSERT(ids.size()>=1,"ids");
+                ASSERT(ids.size()==1||m_inputType==SEQUENCE_INPUT,"ids");
+                if(m_inputType==SEQUENCE_INPUT){
+                    return shared_ptr<Input<T>>(new SequenceInput<T>(ids, m_embedding,m_contextLength,Poolings<Vector<T>>::get(m_poolingId)));
+                }
+                else{
+                    return shared_ptr<Input<T>>(new NonSequenceInput<T>(ids[0],m_embedding));
+                }
+            }
+        public:
+            InputInfo(int inputType,const Matrix<T>& embedding,size_t contextLength,int poolingId):m_inputType(inputType),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
+                ASSERT(inputType==SEQUENCE_INPUT||inputType==NON_SEQUENCE_INPUT,"inputType");
+                ASSERT(embedding.row()>=2,"embedding");
+            }
+        private:
+            const int m_inputType;
+            const Matrix<T>& m_embedding;
+            const size_t m_contextLength;
+            const int m_poolingId;
+    };
+    
     //Defines MLP model.
     template<class T>
     class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
@@ -523,6 +551,8 @@ namespace nn {
                 saveHiddenLayers(os);
             }
         public:
+            MLPModel():m_pRuntime(nullptr){}
+            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds):m_inputsInfo(inputsInfo),m_embeddings(embeddings),m_weights(weights),m_biasVectors(biasVectors),m_activationFunctionIds(activationFunctionIds){}
             ~MLPModel(){
                 if(m_pRuntime){
                     delete m_pRuntime;
@@ -555,7 +585,6 @@ namespace nn {
             void loadInputsInfo(istream& is){
                 int total=0;
                 is>>total;
-                vector<shared_ptr<InputInfo>> m_inputsInfo;
                 int inputType;
                 size_t contextLength;
                 int poolingId;
@@ -565,7 +594,7 @@ namespace nn {
                     pMatrix=loadMatrix(is);
                     m_embeddings.push_back(shared_ptr<Matrix<T>>(pMatrix));
                     is>>contextLength>>poolingId;
-                    m_inputsInfo.push_back(shared_ptr<InputInfo>(new InputInfo(inputType,*pMatrix,contextLength,poolingId)));
+                    m_inputsInfo.push_back(shared_ptr<InputInfo<T>>(new InputInfo<T>(inputType,*pMatrix,contextLength,poolingId)));
                 }
             }
             void loadHiddenLayers(istream& is){
@@ -608,7 +637,7 @@ namespace nn {
                 os<<total;
                 for(auto& pInputInfo:m_inputsInfo){
                     os<<pInputInfo->m_inputType;
-                    saveMatrix(os);
+                    saveMatrix(os,pInputInfo->m_embedding);
                     os<<pInputInfo->m_contextLength>>pInputInfo->m_poolingId;
                 }
             }
@@ -644,34 +673,8 @@ namespace nn {
                 return inputs;
             } 
         private:
-            class InputInfo{
-                public:
-                    enum:int{SEQUENCE_INPUT=0,NON_SEQUENCE_INPUT=1};
-                public:
-                    shared_ptr<Input<T>> getInput(const vector<size_t>& ids) const{
-                        ASSERT(ids.size()>=1,"ids");
-                        ASSERT(ids.size()==1||m_inputType==SEQUENCE_INPUT,"ids");
-                        if(m_inputType==SEQUENCE_INPUT){
-                            return shared_ptr<Input<T>>(new SequenceInput<T>(ids, m_embedding,m_contextLength,Poolings<Vector<T>>::get(m_poolingId)));
-                        }
-                        else{
-                            return shared_ptr<Input<T>>(new NonSequenceInput<T>(ids[0],m_embedding));
-                        }
-                    }
-                public:
-                    InputInfo(int inputType,const Matrix<T>& embedding,size_t contextLength,int poolingId):m_inputType(inputType),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
-                        ASSERT(inputType==SEQUENCE_INPUT||inputType==NON_SEQUENCE_INPUT,"inputType");
-                        ASSERT(embedding.row()>=2,"embedding");
-                    }
-                private:
-                    const int m_inputType;
-                    const Matrix<T>& m_embedding;
-                    const size_t m_contextLength;
-                    const int m_poolingId;
-            };
-        private:
             NN<T,vector<reference_wrapper<Input<T>>>> *m_pRuntime;
-            vector<shared_ptr<InputInfo>> m_inputsInfo; 
+            vector<shared_ptr<InputInfo<T>>> m_inputsInfo; 
             vector<shared_ptr<Matrix<T>>> m_embeddings;
             vector<shared_ptr<Matrix<T>>> m_weights;
             vector<size_t> m_activationFunctionIds;
