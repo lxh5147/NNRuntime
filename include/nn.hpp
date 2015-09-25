@@ -509,6 +509,7 @@ namespace nn {
                 ASSERT(modelPath,"modelPath");
                 ifstream is(modelPath,ios::binary);
                 ASSERT(is.is_open(),"is");
+                cleanIfNeeded();
                 loadInputsInfo(is);
                 loadHiddenLayers(is);
                 is.close();
@@ -533,6 +534,19 @@ namespace nn {
                 }
             }
         private:
+            void cleanIfNeeded(){
+                 if(m_pRuntime==nullptr){
+                    return;
+                 }
+                delete m_pRuntime;
+                m_pRuntime=nullptr;
+                m_inputsInfo.clear();
+                m_hiddenLayers.clear();
+                m_embeddings.clear();
+                m_weights.clear();
+                m_biasVectors.clear();
+                m_activationFunctionIds.clear();
+            }
             void loadInputsInfo(istream& is){
                 int total=0;
                 is>>total;
