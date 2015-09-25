@@ -143,9 +143,36 @@ void MLPTest(){
 }
 
 void MLPModelTest(){
+    //describe model in memory
+    vector<shared_ptr<Matrix<float>>> embeddings={shared_ptr<Matrix<float>>(new  Matrix<float>(shared_ptr<float>(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2)),shared_ptr<Matrix<float>>(new Matrix<float>(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9}),3,2))};
+    vector<shared_ptr<InputInfo<float>>> inputsInfo={shared_ptr<InputInfo<float>>(InputInfo<float>::SEQUENCE_INPUT,*embeddings[0],1,Poolings<Vector<float>>::get(0)),shared_ptr<InputInfo<float>>(*embeddings[1])};
+    vector<shared_ptr<Matrix<float>>> weights={shared_ptr<Matrix<float>>(new Matrix<float>(shared_ptr<float>(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8))};
+    vector<shared_ptr<Vector<float>>> biasVectors={shared_ptr<Vector<float>>(new Vector<float>(new float[2]{0.1,0.2}),2))};
+    vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH};
+    MLPModel<float> model(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
+    //predict
+    vector<vector<size_t>> idsInputs ={{0,2},{2}};    
+    auto r=model.predict();
+    auto t1=tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
+    auto t2=tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
+    auto o1=exp(t1)/(exp(t1)+exp(t2));
+    auto o2=exp(t2)/(exp(t1)+exp(t2));
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(output.data().get()[0],o1), "r");
+    ASSERT(equals(output.data().get()[1],o2), "r");
     //save the model
-    
+    const char* modelFile="model.bin";
+    model.save(modelFile);    
+    //load the model
+    MLPModel<float> modelLoaded;
+    modelLoaded.load(modelFile);
+    //apply the model    
+    r=modelLoaded.predict(idsInputs);
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(output.data().get()[0],o1), "r");
+    ASSERT(equals(output.data().get()[1],o2), "r");    
 }
+
 int main( int argc, const char* argv[] )
 {
     vectorPlusTest();
@@ -160,4 +187,5 @@ int main( int argc, const char* argv[] )
     inputLayerTest();
     softmaxLayerTest();
     MLPTest();
+    MLPModelTest();
 }

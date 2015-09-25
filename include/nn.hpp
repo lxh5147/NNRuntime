@@ -514,6 +514,9 @@ namespace nn {
                 ASSERT(inputType==SEQUENCE_INPUT||inputType==NON_SEQUENCE_INPUT,"inputType");
                 ASSERT(embedding.row()>=2,"embedding");
             }
+            InputInfo(const Matrix<T>& embedding):m_inputType(NON_SEQUENCE_INPUT),m_embedding(embedding),m_contextLength(0),m_poolingId(-1){               
+                ASSERT(embedding.row()>=2,"embedding");
+            }            
         private:
             const int m_inputType;
             const Matrix<T>& m_embedding;
@@ -528,7 +531,7 @@ namespace nn {
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const{
                 vector<shared_ptr<Input<T>>> pInputs=createInputs(idsInputs);
                 vector<reference_wrapper<Input<T>>> inputs;
-                for( auto &pInput:pInputs){
+                for(auto &pInput:pInputs){
                     inputs.push_back(reference_wrapper<Input<T>>(*pInput));
                 }
                 return m_pRuntime->calc(inputs);
@@ -552,7 +555,9 @@ namespace nn {
             }
         public:
             MLPModel():m_pRuntime(nullptr){}
-            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds):m_inputsInfo(inputsInfo),m_embeddings(embeddings),m_weights(weights),m_biasVectors(biasVectors),m_activationFunctionIds(activationFunctionIds){}
+            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds):m_inputsInfo(inputsInfo),m_embeddings(embeddings),m_weights(weights),m_biasVectors(biasVectors),m_activationFunctionIds(activationFunctionIds){
+                initRuntime();
+            }
             ~MLPModel(){
                 if(m_pRuntime){
                     delete m_pRuntime;
