@@ -485,7 +485,10 @@ namespace nn {
     template <class T, class I>
     class NNModel {
         public:
-            virtual void load(const char* modelPath) const=0;
+            //Loads model from a binary file.
+            virtual void load(const char* modelPath)=0;
+            //Saves this model to a binary file.
+            virtual void save(const char* modelPath) const=0;
             //Predicts with ids as inputs.
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const=0;
     };
@@ -503,6 +506,7 @@ namespace nn {
                 return m_pRuntime->calc(inputs);
             }
             virtual void load(const char* modelPath){
+                ASSERT(modelPath,"modelPath");
                 ifstream is(modelPath,ios::binary);
                 ASSERT(is.is_open(),"is");
                 loadInputsInfo(is);
@@ -513,6 +517,13 @@ namespace nn {
                 layers.push_back(shared_ptr<Layer<T, Vector<T>>>(new SoftmaxLayer<T>()));
                 m_pRuntime=new MLP<T>(shared_ptr<InputLayer<T>> (new InputLayer<T>()),layers);
                 ASSERT(m_pRuntime,"m_pRuntime");
+            }
+            virtual void save(const char* modelPath) const{
+                ASSERT(modelPath,"modelPath");
+                ofstream os (modelPath, ios::binary);
+                ASSERT(os.is_open(),"os");
+                saveInputsInfo(is);
+                saveHiddenLayers(is);
             }
         public:
             ~MLPModel(){
@@ -542,9 +553,9 @@ namespace nn {
                 int total=0;
                 is>>total;  
                 Matrix<T>* pPreMatrix=nullptr;
-                int activationFunctionId;
+                size_t activationFunctionId;
                 Matrix<T>* pMatrix;
-                Vector<T>* pBias;
+                Vector<T>* pBias;              
                 for(int i=0;i<total;++i){
                     pMatrix=loadMatrix(is);
                     if(pPreMatrix!=nullptr){
@@ -555,6 +566,7 @@ namespace nn {
                     is>>activationFunctionId;
                     m_weights.push_back(shared_ptr<Matrix<T>>(pMatrix));
                     m_biasVectors.push_back(shared_ptr<Vector<T>>(pBias));
+                    m_activationFunctionIds.push_back(activationFunctionId);
                     m_hiddenLayers.push_back(shared_ptr<HiddenLayer<T>>(new HiddenLayer<T>(*pMatrix,*pBias,ActivationFunctions<T>::get(activationFunctionId))));
                 }
             }
@@ -572,6 +584,37 @@ namespace nn {
                 T* buffer=new T[size];
                 is.read(buffer,sizeof(T)*size);
                 return new Vector<T>(shared_ptr<T>(buffer),size);
+            }
+            void saveInputsInfo(ostream& os) const{
+                int total=0;
+                os<<total;
+                for(auto& pInputInfo){
+                    os<<pInputInfo->m_inputType;
+                    saveMatrix(os);
+                    os<<pInputInfo->m_contextLength>>pInputInfo->m_poolingId;
+                }
+            }
+            void saveHiddenLayers(ostream& os) const{
+                int total=0;
+                os<<total;
+                for(int i=0;i<total;++i){
+                    saveMatrix(os,*m_weights[i]);
+                    saveVector(os,*m_biasVectors[i]);
+                    os<<m_activationFunctionIds[i];
+                }
+            }
+            void saveMatrix(ostream& os, const Matrix<T>& matrix) const{
+                size_t row=matrix.row();
+                size-t col=matrix.col();
+                os<<row<<col;
+                T* buffer=matrix.data().get();
+                os.write(buffer,sizeof(T)*row*col);
+            }
+            Vector<T>* saveVector(ostream& os, const Vector<T>& vector) const{
+                size_t size=vector.size();
+                os<<size;
+                T* buffer=vector.data().get();
+                os.write(buffer,sizeof(T)*size);
             }
             //Creates inputs for the runtime
             vector<shared_ptr<Input<T>>> createInputs(const vector<vector<size_t>>& idsInputs) const{
@@ -614,6 +657,7 @@ namespace nn {
             vector<shared_ptr<HiddenLayer<T>>> m_hiddenLayers;
             vector<shared_ptr<Matrix<T>>> m_embeddings;
             vector<shared_ptr<Matrix<T>>> m_weights;
+            vector<size_t> m_activationFunctionIds;
             vector<shared_ptr<Vector<T>>> m_biasVectors;  
     };
 }
