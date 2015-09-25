@@ -522,8 +522,8 @@ namespace nn {
                 ASSERT(modelPath,"modelPath");
                 ofstream os (modelPath, ios::binary);
                 ASSERT(os.is_open(),"os");
-                saveInputsInfo(is);
-                saveHiddenLayers(is);
+                saveInputsInfo(os);
+                saveHiddenLayers(os);
             }
         public:
             ~MLPModel(){
@@ -588,7 +588,7 @@ namespace nn {
             void saveInputsInfo(ostream& os) const{
                 int total=0;
                 os<<total;
-                for(auto& pInputInfo){
+                for(auto& pInputInfo:m_inputsInfo){
                     os<<pInputInfo->m_inputType;
                     saveMatrix(os);
                     os<<pInputInfo->m_contextLength>>pInputInfo->m_poolingId;
@@ -605,7 +605,7 @@ namespace nn {
             }
             void saveMatrix(ostream& os, const Matrix<T>& matrix) const{
                 size_t row=matrix.row();
-                size-t col=matrix.col();
+                size_t col=matrix.col();
                 os<<row<<col;
                 T* buffer=matrix.data().get();
                 os.write(buffer,sizeof(T)*row*col);
