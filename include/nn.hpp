@@ -779,6 +779,11 @@ namespace nn {
             vector<shared_ptr<Vector<T>>> m_biasVectors;
     };
 
+    //Defines helper function to compare two values.
+    template<typename T, typename U>
+    bool equals (const T& t1, const U& t2){
+        return abs(t1-t2) <= 0.000001;
+    }
 }
 
 #endif

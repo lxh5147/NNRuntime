@@ -3,11 +3,6 @@
 using namespace std;
 using namespace nn;
 
-template<typename T, typename U>
-bool equals (const T& t1, const U& t2){
-    return abs(t1-t2) <= 0.000001;
-}
-
 void vectorPlusTest(){
     Vector<float> v1(make_shared_ptr(new float[2]{0.5,0.5}),2);
     Vector<float> v(make_shared_ptr(new float[2]{0.2,0.3}),2);
@@ -168,7 +163,7 @@ void MLPModelTest(){
     vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH};
     MLPModel<float> model(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
     //predict
-    vector<vector<size_t>> idsInputs ={{0,2},{2}};    
+    vector<vector<size_t>> idsInputs ={{0,2},{2}};
     auto r=model.predict(idsInputs);
     auto t1=tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
     auto t2=tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
@@ -183,11 +178,11 @@ void MLPModelTest(){
     //load the model
     MLPModel<float> modelLoaded;
     modelLoaded.load(modelFile);
-    //apply the model    
+    //apply the model
     r=modelLoaded.predict(idsInputs);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
-    ASSERT(equals(r.data().get()[1],o2), "r");    
+    ASSERT(equals(r.data().get()[1],o2), "r");
 }
 
 int main( int argc, const char* argv[] )
