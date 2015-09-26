@@ -100,6 +100,20 @@ namespace nn {
             size_t m_size;
     };
 
+    //Defines a helper function to create shared pointer by leveraging the type inference capability of templated static function.
+    template<typename T>
+    shared_ptr<T> make_shared_ptr(T* p){
+        ASSERT(p,"p");
+        return shared_ptr<T>(p);
+    }
+
+    //Defines helper function to create shared pointer of vector.
+    template<typename T>
+    shared_ptr<Vector<T>> newVector(T* data, size_t size){
+        ASSERT(data,"data");
+        return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
+    }
+
     //Defines a matrix of shape row*col.
     template <class T>
     class Matrix {
@@ -138,6 +152,13 @@ namespace nn {
             const size_t m_row;
             const size_t m_col;
     };
+
+    //Defines helper function to create shared pointer of matrix. 
+    template<typename T>
+    shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
+        ASSERT(data,"data");
+        return make_shared_ptr(new Matrix<T>(make_shared_ptr(data),row,col));
+    }
 
     //Defines a layer of neural network.
     template<class T, class I>
@@ -497,22 +518,18 @@ namespace nn {
             virtual ~NNModel(){}
     };
 
-    template<typename T>
-    shared_ptr<T> make_shared_ptr(T* p){
-        ASSERT(p,"p");
-        return shared_ptr<T>(p);
-    }
-    
+    //Defines a helper function to create a shared pointer of sequence input.
     template<typename T>
     shared_ptr<Input<T>> newInput(const vector<size_t>& idSequence,const size_t contextLength, const Matrix<T>& embedding, const int poolingId){
         return make_shared_ptr(new SequenceInput<T>(idSequence,contextLength,embedding,Poolings<Vector<T>>::get(poolingId)));
     }
 
+    //Defines a helper function to create a shared pointer of non-sequence input.
     template<typename T>
     shared_ptr<Input<T>> newInput(const size_t id, const Matrix<T>& embedding){
         return make_shared_ptr(new NonSequenceInput<T>(id,embedding));
     }
-    
+
     //Defines input information.
     template<class T>
     class InputInfo{
@@ -560,30 +577,28 @@ namespace nn {
             const int m_poolingId;
     };
 
+    //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(int inputType,const Matrix<T>& embedding,size_t contextLength,int poolingId){
         return make_shared_ptr(new InputInfo<T>(inputType,embedding,contextLength,poolingId));
     }
 
+    //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding,size_t contextLength,int poolingId){
         return make_shared_ptr(new InputInfo<T>(embedding,contextLength,poolingId));
     }
-    
+
+    //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding){
         return make_shared_ptr(new InputInfo<T>(embedding));
     }
 
-    template<typename T>
-    void append(vector<T>& target, const vector<T>& source){
-        target.insert(target.end(),source.begin(),source.end());
-    }
-
     //Defines MLP model.
     template<class T>
     class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
-        public:          
+        public:
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const{
                 vector<shared_ptr<Input<T>>> pInputs=createInputs(idsInputs);
                 vector<reference_wrapper<Input<T>>> inputs;
@@ -625,7 +640,7 @@ namespace nn {
                     m_pRuntime=nullptr;
                 }
             }
-        private:
+        private:        
             void initRuntime(){
                 vector<shared_ptr<Layer<T, Vector<T>>>> layers;
                 size_t total=m_weights.size();
@@ -647,6 +662,10 @@ namespace nn {
                 m_weights.clear();
                 m_biasVectors.clear();
                 m_activationFunctionIds.clear();
+            }
+            template<typename V>
+            static void append(vector<V>& target, const vector<V>& source){
+                target.insert(target.end(),source.begin(),source.end());
             }
             void loadInputsInfo(istream& is){
                 size_t total=0;
@@ -670,7 +689,7 @@ namespace nn {
                 Matrix<T>* pPreMatrix=nullptr;
                 size_t activationFunctionId;
                 Matrix<T>* pMatrix;
-                Vector<T>* pBias;              
+                Vector<T>* pBias;
                 for(size_t i=0;i<total;++i){
                     pMatrix=loadMatrix(is);
                     if(pPreMatrix!=nullptr){
@@ -757,20 +776,9 @@ namespace nn {
             vector<shared_ptr<Matrix<T>>> m_embeddings;
             vector<shared_ptr<Matrix<T>>> m_weights;
             vector<size_t> m_activationFunctionIds;
-            vector<shared_ptr<Vector<T>>> m_biasVectors;  
+            vector<shared_ptr<Vector<T>>> m_biasVectors;
     };
 
-    template<typename T>
-    shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
-        ASSERT(data,"data");
-        return make_shared_ptr(new Matrix<T>(make_shared_ptr(data),row,col));
-    }
-
-    template<typename T>
-    shared_ptr<Vector<T>> newVector(T* data, size_t size){
-        ASSERT(data,"data");
-        return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
-    }
-
 }
+
 #endif

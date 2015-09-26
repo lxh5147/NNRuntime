@@ -9,8 +9,8 @@ bool equals (const T& t1, const U& t2){
 }
 
 void vectorPlusTest(){
-    Vector<float> v1(shared_ptr<float>(new float[2]{0.5,0.5}),2);
-    Vector<float> v(shared_ptr<float>(new float[2]{0.2,0.3}),2);
+    Vector<float> v1(make_shared_ptr(new float[2]{0.5,0.5}),2);
+    Vector<float> v(make_shared_ptr(new float[2]{0.2,0.3}),2);
     v.plus(v1);
     ASSERT(v.size() == 2, "v");
     ASSERT(equals(v.data().get()[0] , 0.7f), "v");
@@ -18,7 +18,7 @@ void vectorPlusTest(){
 }
 
 void vectorDivideTest(){
-    Vector<float> v(shared_ptr<float>(new float[2]{0.2,0.4}),2);
+    Vector<float> v(make_shared_ptr(new float[2]{0.2,0.4}),2);
     v.divide(2);
     ASSERT(v.size() == 2, "v");
     ASSERT(equals(v.data().get()[0] , 0.1), "v");
@@ -26,8 +26,8 @@ void vectorDivideTest(){
 }
 
 void vectorMaxTest(){
-    Vector<float> v1(shared_ptr<float>(new float[2]{0.3,0.4}),2);
-    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.1}),2);
+    Vector<float> v1(make_shared_ptr(new float[2]{0.3,0.4}),2);
+    Vector<float> v(make_shared_ptr(new float[2]{0.5,0.1}),2);
     v.max(v1);
     ASSERT(v.size() == 2, "v");
     ASSERT(equals(v.data().get()[0] , 0.5), "v");
@@ -35,7 +35,7 @@ void vectorMaxTest(){
 }
 
 void vectorApplyTest(){
-    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.6}),2);
+    Vector<float> v(make_shared_ptr(new float[2]{0.5,0.6}),2);
     auto inc=[](const float& t) {return t+1;};
     v.apply(inc);
     ASSERT(v.size() == 2, "v");
@@ -44,15 +44,15 @@ void vectorApplyTest(){
 }
 
 void vectorAggregateTest(){
-    Vector<float> v(shared_ptr<float>(new float[2]{0.5,0.6}),2);
+    Vector<float> v(make_shared_ptr(new float[2]{0.5,0.6}),2);
     auto sum=[](const float& t1, const float& t2) {return t1+t2;};
     auto result=v.aggregate(sum,0);
     ASSERT(equals(result , 1.1f), "result");
 }
 
 void matrixMultiplyTest(){
-    Matrix<float> m(shared_ptr<float>(new float[2*3]{1,2,3,4,5,6}),2,3);
-    Vector<float> v(shared_ptr<float>(new float[3]{0.1,0.2,0.3}),3);
+    Matrix<float> m(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
+    Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
     auto r=m.multiply(v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
@@ -60,10 +60,10 @@ void matrixMultiplyTest(){
 }
 
 void hiddenLayerTest(){
-    Matrix<float> W(shared_ptr<float>(new float[2*3]{1,2,3,4,5,6}),2,3);
-    Vector<float> b(shared_ptr<float>(new float[2]{1.5,1.8}),2);
+    Matrix<float> W(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
+    Vector<float> b(make_shared_ptr(new float[2]{1.5,1.8}),2);
     HiddenLayer<float> layer(W,b,ActivationFunctions<float>::get(0));
-    Vector<float> v(shared_ptr<float>(new float[3]{0.1,0.2,0.3}),3);
+    Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
     auto r=layer.calc(v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , tanh(2.9f)), "r[0]");
@@ -71,7 +71,7 @@ void hiddenLayerTest(){
 }
 
 void sequenceInputTest(){
-    Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
+    Matrix<float> E(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
     std::vector<size_t> idSequence = { 0,2 };
     SequenceInput<float> input(idSequence,1,E,Poolings<Vector<float>>::get(0));
     auto r=input.get();
@@ -85,7 +85,7 @@ void sequenceInputTest(){
 }
 
 void nonSequenceInputTest(){
-    Matrix<float> E(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
+    Matrix<float> E(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
     NonSequenceInput<float> input(2,E);
     auto r=input.get();
     ASSERT(r.size() == 2, "r");
@@ -94,10 +94,10 @@ void nonSequenceInputTest(){
 }
 
 void inputLayerTest(){
-    Matrix<float> E1(shared_ptr<float>(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
+    Matrix<float> E1(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
     std::vector<size_t> idSequence = { 0,2 };
     SequenceInput<float> sequenceInput(idSequence,1,E1,Poolings<Vector<float>>::get(0));
-    Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
+    Matrix<float> E2(make_shared_ptr(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
     NonSequenceInput<float> nonSequenceInput(2,E2);
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};
     InputLayer<float> layer;
@@ -124,11 +124,11 @@ void softmaxLayerTest(){
 }
 
 void MLPTest(){
-    Matrix<float> E1(shared_ptr<float>(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2);
-    Matrix<float> E2(shared_ptr<float>(new float[3*2]{0,0,0.3,0.8,0.2,0.9}),3,2);
+    Matrix<float> E1(make_shared_ptr(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2);
+    Matrix<float> E2(make_shared_ptr(new float[3*2]{0,0,0.3,0.8,0.2,0.9}),3,2);
     shared_ptr<InputLayer<float>> inputLayer (new InputLayer<float>());
-    Matrix<float> W(shared_ptr<float>(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
-    Vector<float> b(shared_ptr<float>(new float[2]{0.1,0.2}),2);
+    Matrix<float> W(make_shared_ptr(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
+    Vector<float> b(make_shared_ptr(new float[2]{0.1,0.2}),2);
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
         std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,ActivationFunctions<float>::get(0)))
     };
