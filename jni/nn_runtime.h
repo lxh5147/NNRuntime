@@ -1,6 +1,3 @@
-#include <vector>
-
-using namespace std;
-
-extern int load(const char* modelPath);
-extern vector<size_t> predict(int modelHandle, const vector<vector<size_t>>& idsInputs);
+//#include <vector>
+extern size_t load(const char* modelPath);
+//extern std::vector<double> predict(size_t modelHandle, const std::vector<std::vector<size_t>>& idsInputs);
