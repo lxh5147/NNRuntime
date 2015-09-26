@@ -430,6 +430,8 @@ namespace nn {
     class NN {
         public:
             virtual Vector<T> calc(const I& inputs) const = 0;
+        public:
+            virtual ~NN(){}
     };
 
     //Defines a multiple layer neural network, consisting of an input layer and a list of other layers.
@@ -492,6 +494,22 @@ namespace nn {
             //Predicts with ids as inputs.
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const=0;
     };
+
+    template<typename T>
+    shared_ptr<T> make_shared_ptr(T* p){
+        ASSERT(p,"p");
+        return shared_ptr<T>(p);
+    }
+    
+    template<typename T>
+    shared_ptr<Input<T>> newInput(const vector<size_t>& idSequence,const size_t contextLength, const Matrix<T>& embedding, const int poolingId){
+        return make_shared_ptr(new SequenceInput<T>(idSequence,contextLength,embedding,Poolings<Vector<T>>::get(poolingId)));
+    }
+
+    template<typename T>
+    shared_ptr<Input<T>> newInput(const size_t id, const Matrix<T>& embedding){
+        return make_shared_ptr(new NonSequenceInput<T>(id,embedding));
+    }
     
     //Defines input information.
     template<class T>
@@ -503,10 +521,10 @@ namespace nn {
                 ASSERT(ids.size()>=1,"ids");
                 ASSERT(ids.size()==1||m_inputType==SEQUENCE_INPUT,"ids");
                 if(m_inputType==SEQUENCE_INPUT){
-                    return shared_ptr<Input<T>>(new SequenceInput<T>(ids, m_embedding,m_contextLength,Poolings<Vector<T>>::get(m_poolingId)));
+                    return newInput(ids,m_contextLength,m_embedding,m_poolingId);
                 }
                 else{
-                    return shared_ptr<Input<T>>(new NonSequenceInput<T>(ids[0],m_embedding));
+                    return newInput(ids[0],m_embedding);
                 }
             }
         public:
@@ -514,15 +532,36 @@ namespace nn {
                 ASSERT(inputType==SEQUENCE_INPUT||inputType==NON_SEQUENCE_INPUT,"inputType");
                 ASSERT(embedding.row()>=2,"embedding");
             }
+            InputInfo(const Matrix<T>& embedding,size_t contextLength,int poolingId):m_inputType(SEQUENCE_INPUT),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
+                ASSERT(embedding.row()>=2,"embedding");
+            }
             InputInfo(const Matrix<T>& embedding):m_inputType(NON_SEQUENCE_INPUT),m_embedding(embedding),m_contextLength(0),m_poolingId(-1){               
                 ASSERT(embedding.row()>=2,"embedding");
-            }            
+            }
+        public:
+            const int inputType() const{
+                return m_inputType;
+            }
+            const Matrix<T>& embedding() const{
+                return m_embedding;
+            }
+            const size_t contextLength() const{
+                return m_contextLength;
+            } 
+            const int poolingId() const{
+                return m_poolingId;
+            }
         private:
             const int m_inputType;
             const Matrix<T>& m_embedding;
             const size_t m_contextLength;
             const int m_poolingId;
     };
+    
+    template<typename T>
+    void append(vector<T>& target, const vector<T>& source){
+        target.insert(target.end(),source.begin(),source.end());
+    }
     
     //Defines MLP model.
     template<class T>
@@ -555,10 +594,15 @@ namespace nn {
             }
         public:
             MLPModel():m_pRuntime(nullptr){}
-            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds):m_inputsInfo(inputsInfo),m_embeddings(embeddings),m_weights(weights),m_biasVectors(biasVectors),m_activationFunctionIds(activationFunctionIds){
+            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds){
+                append(m_inputsInfo, inputsInfo);
+                append(m_embeddings,embeddings);
+                append(m_weights,weights);
+                append(m_biasVectors,biasVectors);
+                append(m_activationFunctionIds,activationFunctionIds);
                 initRuntime();
             }
-            ~MLPModel(){
+            virtual ~MLPModel(){
                 if(m_pRuntime){
                     delete m_pRuntime;
                     m_pRuntime=nullptr;
@@ -627,23 +671,23 @@ namespace nn {
                 size_t col;
                 is>>row>>col;
                 T* buffer=new T[row*col];
-                is.read(buffer,sizeof(T)*row*col);
+                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*row*col);
                 return new Matrix<T>(shared_ptr<T>(buffer),row,col);
             }
             Vector<T>* loadVector(istream& is) const{
                 size_t size;
                 is>>size;
                 T* buffer=new T[size];
-                is.read(buffer,sizeof(T)*size);
+                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
                 return new Vector<T>(shared_ptr<T>(buffer),size);
             }
             void saveInputsInfo(ostream& os) const{
                 int total=0;
                 os<<total;
                 for(auto& pInputInfo:m_inputsInfo){
-                    os<<pInputInfo->m_inputType;
-                    saveMatrix(os,pInputInfo->m_embedding);
-                    os<<pInputInfo->m_contextLength>>pInputInfo->m_poolingId;
+                    os<<pInputInfo->inputType();
+                    saveMatrix(os,pInputInfo->embedding());
+                    os<<pInputInfo->contextLength()<<pInputInfo->poolingId();
                 }
             }
             void saveHiddenLayers(ostream& os) const{
@@ -660,20 +704,22 @@ namespace nn {
                 size_t col=matrix.col();
                 os<<row<<col;
                 T* buffer=matrix.data().get();
-                os.write(buffer,sizeof(T)*row*col);
+                os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*row*col);
+                ASSERT(os,"os");
             }
-            Vector<T>* saveVector(ostream& os, const Vector<T>& vector) const{
+            void saveVector(ostream& os, const Vector<T>& vector) const{
                 size_t size=vector.size();
                 os<<size;
                 T* buffer=vector.data().get();
-                os.write(buffer,sizeof(T)*size);
+                os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*size);
+                ASSERT(os,"os");
             }
             //Creates inputs for the runtime
             vector<shared_ptr<Input<T>>> createInputs(const vector<vector<size_t>>& idsInputs) const{
                 ASSERT(idsInputs.size()==m_inputsInfo.size(),"idsInputs");
                 vector<shared_ptr<Input<T>>> inputs;
                 for(size_t i=0;i<idsInputs.size();++i){
-                    inputs.push_back(m_inputsInfo[i].getInput(idsInputs[i]));
+                    inputs.push_back(m_inputsInfo[i]->getInput(idsInputs[i]));
                 }
                 return inputs;
             } 
@@ -685,6 +731,33 @@ namespace nn {
             vector<size_t> m_activationFunctionIds;
             vector<shared_ptr<Vector<T>>> m_biasVectors;  
     };
-}
 
+    template<typename T>
+    shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
+        ASSERT(data,"data");
+        return make_shared_ptr(new Matrix<T>(make_shared_ptr(data),row,col));
+    }
+
+    template<typename T>
+    shared_ptr<Vector<T>> newVector(T* data, size_t size){
+        ASSERT(data,"data");
+        return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
+    }
+
+    template<typename T>
+    shared_ptr<InputInfo<T>> newInputInfo(int inputType,const Matrix<T>& embedding,size_t contextLength,int poolingId){
+        return make_shared_ptr(new InputInfo<T>(inputType,embedding,contextLength,poolingId));
+    }
+
+    template<typename T>
+    shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding,size_t contextLength,int poolingId){
+        return make_shared_ptr(new InputInfo<T>(embedding,contextLength,poolingId));
+    }
+    
+    template<typename T>
+    shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding){
+        return make_shared_ptr(new InputInfo<T>(embedding));
+    }
+
+}
 #endif
