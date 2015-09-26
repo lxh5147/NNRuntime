@@ -7,6 +7,7 @@
 
 namespace std {
    %template(DoubleVector) vector<double>;
+   %template(IdVector) vector<size_t>;
    %template(IdsVector) vector< vector<size_t> >;
 }
 
