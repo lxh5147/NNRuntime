@@ -27,4 +27,12 @@ include_directories(${JNI_INCLUDE_DIRS})
 
 swig_add_module(nn_runtime_jni java nn_runtime.i "nn_runtime.h" "nn_runtime.cpp")
 
-add_executable(test "nn_runtime.cpp" "test.cpp")
+#cpp runtime test
+add_executable(nn_runtime_test "nn_runtime.cpp" "test.cpp")
+add_test(NAME nn_runtime_test COMMAND ${CMAKE_HOME_DIRECTORY}/nn_runtime_test)
+
+#jni test
+file(GLOB java_src nn_runtime_jni/*.java test.java)
+add_jar(nn_runtime_jni_test ${java_src} ENTRY_POINT test)
+get_target_property(_jarFile test JAR_FILE)
+add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -cp ${_jarFile} -so ${CMAKE_HOME_DIRECTORY}/libnn_runtime_jni.so)
