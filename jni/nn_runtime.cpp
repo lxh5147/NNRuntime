@@ -46,7 +46,8 @@ size_t load(const char* modelPath){
 //Helper function that converts Vector to std::vector.
 template<typename T>
 vector<double> to_vector(const Vector<T>& input){
-    vector<double> result(input.size());
+    vector<double> result;
+    result.reserve(input.size());
     T* elements=input.data().get();
     for(size_t i=0;i<input.size();++i){
         result.push_back(elements[i]);
@@ -56,7 +57,7 @@ vector<double> to_vector(const Vector<T>& input){
 
 //Predicts the probability of each category.
 vector<double> predict(size_t modelHandle, const vector<vector<size_t>>& idsInputs){
-    ASSERT(modelHandle>0 && modelHandle<models.size(),"modelHandle");
+    ASSERT(modelHandle>0 && modelHandle<=models.size(),"modelHandle");
     TYPE_MLPModel* pModel=models[modelHandle-1].get();    
     try {
       return to_vector(pModel->predict(idsInputs));
