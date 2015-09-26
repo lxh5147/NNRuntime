@@ -11,9 +11,11 @@ using namespace nn;
 
 typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
 
+//Loaded models.
 vector<shared_ptr<TYPE_MLPModel>> models;
 
-mutex mx;
+//Lock associated with the models
+mutex modelsLock;
 
 const size_t HANDLE_INVALID=0;
 
@@ -25,22 +27,23 @@ size_t load(const char* modelPath){
         pModel->load(modelPath);
     }
     catch(...){
-        cerr<<"Failed to load binary model: "<<modelPath<<endl;
+        cerr<<"Failed to load binary model "<<modelPath<<endl;
         return HANDLE_INVALID;
     }
-    mx.lock();
-    try {       
+    try {
+        modelsLock.lock();
         models.push_back(pModel);
         size_t handle = models.size();
-        mx.unlock(); 
+        modelsLock.unlock(); 
         return handle;
     } catch (const bad_alloc &ex) {
-       mx.unlock(); 
-       cerr<<ex.what() << ": failed to load binary model: "<<modelPath<<endl;
+       modelsLock.unlock(); 
+       cerr<<ex.what() << ": failed to load binary model "<<modelPath<<endl;
        return HANDLE_INVALID;
     } 
 }
 
+//Helper function that converts Vector to std::vector.
 template<typename T>
 vector<double> to_vector(const Vector<T>& input){
     vector<double> result(input.size());
@@ -51,14 +54,15 @@ vector<double> to_vector(const Vector<T>& input){
     return result;
 }
 
+//Predicts the probability of each category.
 vector<double> predict(size_t modelHandle, const vector<vector<size_t>>& idsInputs){
     ASSERT(modelHandle>0 && modelHandle<models.size(),"modelHandle");
     TYPE_MLPModel* pModel=models[modelHandle-1].get();    
     try {
       return to_vector(pModel->predict(idsInputs));
     } catch (...) {
-        cerr<<"Failed to predict with model handle="<<modelHandle<<endl;
-        cerr<<"with id inputs="<<endl;
+        cerr<<"Failed to predict with: model handle="<<modelHandle<<endl;
+        cerr<<"Id inputs="<<endl;
         for(auto& ids:idsInputs){
             for(auto& id:ids){
                 cerr<<id<<" ";

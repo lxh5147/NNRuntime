@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 #set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};Modules/")
 find_package(Java REQUIRED COMPONENTS Runtime Development)
-#ensure: export JAVA_HOME=/usr/lib/jvm/java-8-oracle/
+#ensure that java home is properly set, e.g., JAVA_HOME=/usr/lib/jvm/java-8-oracle/
 find_package(JNI REQUIRED)
 find_package(SWIG REQUIRED)
 include(UseJava)
@@ -20,7 +20,7 @@ include(UseSWIG)
 set(CMAKE_SWIG_FLAGS -package nn_runtime_jni)
 set(CMAKE_SWIG_OUTDIR "nn_runtime_jni")
 SET_SOURCE_FILES_PROPERTIES(nn_runtime.i PROPERTIES CPLUSPLUS 1)
-SET_SOURCE_FILES_PROPERTIES(nn_runtime.i PROPERTIES SWIG_FLAGS "-includeall")
+#SET_SOURCE_FILES_PROPERTIES(nn_runtime.i PROPERTIES SWIG_FLAGS "-includeall")
 
 set(CMAKE_JNI_TARGET TRUE)
 
