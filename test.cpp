@@ -142,6 +142,23 @@ void MLPTest(){
     ASSERT(equals(r.data().get()[1] ,tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2)), "r");
 }
 
+void writeReadFilleTest(){
+    const char* file="test.bin";
+    ofstream os(file,ios::binary);
+    float f1=3.26f;
+    size_t size1=5;
+    os.write((const char*)&f1,sizeof(float));
+    os.write((const char*)&size1,sizeof(size_t));
+    os.close();
+    ifstream is(file,ios::binary);
+    float f2=0.0f;
+    size_t size2=0;
+    is.read((char*)&f2,sizeof(float));
+    is.read((char*)&size2,sizeof(size_t));
+    ASSERT(equals(f1,f2),"f1,f2");
+    ASSERT(equals(size1,size2),"size1,size2");
+}
+
 void MLPModelTest(){
     //describe model in memory
     vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.4},3,2),newMatrix(new float[3*2]{0,0,0.3,0.8,0.2,0.9},3,2)};
@@ -188,4 +205,5 @@ int main( int argc, const char* argv[] )
     softmaxLayerTest();
     MLPTest();
     MLPModelTest();
+    writeReadFilleTest();
 }

@@ -579,7 +579,7 @@ namespace nn {
     void append(vector<T>& target, const vector<T>& source){
         target.insert(target.end(),source.begin(),source.end());
     }
-    
+
     //Defines MLP model.
     template<class T>
     class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
@@ -604,7 +604,7 @@ namespace nn {
             }
             virtual void save(const char* modelPath) const{
                 ASSERT(modelPath,"modelPath");
-                ofstream os (modelPath, ios::binary);
+                ofstream os(modelPath, ios::binary);
                 ASSERT(os.is_open(),"os");
                 saveInputsInfo(os);
                 saveHiddenLayers(os);
@@ -649,35 +649,36 @@ namespace nn {
                 m_activationFunctionIds.clear();
             }
             void loadInputsInfo(istream& is){
-                int total=0;
-                is>>total;
+                size_t total=0;
+                load(is,total);
                 int inputType;
                 size_t contextLength;
                 int poolingId;
                 Matrix<T>* pMatrix;
-                for(int i=0;i<total;++i){
-                    is>>inputType;
+                for(size_t i=0;i<total;++i){
+                    load(is,inputType);
                     pMatrix=loadMatrix(is);
                     m_embeddings.push_back(make_shared_ptr(pMatrix));
-                    is>>contextLength>>poolingId;
+                    load(is,contextLength);
+                    load(is,poolingId);
                     m_inputsInfo.push_back(newInputInfo(inputType,*pMatrix,contextLength,poolingId));
                 }
             }
             void loadHiddenLayers(istream& is){
-                int total=0;
-                is>>total;  
+                size_t total=0;
+                load(is,total);
                 Matrix<T>* pPreMatrix=nullptr;
                 size_t activationFunctionId;
                 Matrix<T>* pMatrix;
                 Vector<T>* pBias;              
-                for(int i=0;i<total;++i){
+                for(size_t i=0;i<total;++i){
                     pMatrix=loadMatrix(is);
                     if(pPreMatrix!=nullptr){
                         ASSERT(pPreMatrix->row()==pMatrix->col(),"input vector size");
                     }
                     pPreMatrix=pMatrix;
                     pBias=loadVector(is);
-                    is>>activationFunctionId;
+                    load(is,activationFunctionId);
                     m_weights.push_back(make_shared_ptr(pMatrix));
                     m_biasVectors.push_back(make_shared_ptr(pBias));
                     m_activationFunctionIds.push_back(activationFunctionId);
@@ -686,47 +687,57 @@ namespace nn {
             Matrix<T>* loadMatrix(istream& is) const{
                 size_t row ;
                 size_t col;
-                is>>row>>col;
+                load(is,row);
+                load(is,col);
                 T* buffer=new T[row*col];
                 is.read(reinterpret_cast<char*>(buffer),sizeof(T)*row*col);
                 return new Matrix<T>(shared_ptr<T>(buffer),row,col);
             }
             Vector<T>* loadVector(istream& is) const{
                 size_t size;
-                is>>size;
+                load(is,size);
                 T* buffer=new T[size];
                 is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
                 return new Vector<T>(shared_ptr<T>(buffer),size);
             }
+            template<typename V>
+            static void load(istream& is, V& value){
+                is.read(reinterpret_cast<char*>(&value),sizeof(V));
+            }
             void saveInputsInfo(ostream& os) const{
-                int total=0;
-                os<<total;
+                save(os,m_inputsInfo.size());
                 for(auto& pInputInfo:m_inputsInfo){
-                    os<<pInputInfo->inputType();
-                    saveMatrix(os,pInputInfo->embedding());
-                    os<<pInputInfo->contextLength()<<pInputInfo->poolingId();
+                    save(os,pInputInfo->inputType());
+                    save(os,pInputInfo->embedding());
+                    save(os,pInputInfo->contextLength());
+                    save(os,pInputInfo->poolingId());
                 }
             }
             void saveHiddenLayers(ostream& os) const{
-                int total=0;
-                os<<total;
-                for(int i=0;i<total;++i){
-                    saveMatrix(os,*m_weights[i]);
-                    saveVector(os,*m_biasVectors[i]);
-                    os<<m_activationFunctionIds[i];
+                size_t total=m_weights.size();
+                save(os,total);
+                for(size_t i=0;i<total;++i){
+                    save(os,*m_weights[i]);
+                    save(os,*m_biasVectors[i]);
+                    save(os,m_activationFunctionIds[i]);
                 }
             }
-            void saveMatrix(ostream& os, const Matrix<T>& matrix) const{
+            template<typename V>
+            static void save(ostream& os, const V& value){
+                os.write(reinterpret_cast<const char*>(&value),sizeof(V));
+            }            
+            static void save(ostream& os, const Matrix<T>& matrix){
                 size_t row=matrix.row();
                 size_t col=matrix.col();
-                os<<row<<col;
+                save(os,row);
+                save(os,col);
                 T* buffer=matrix.data().get();
                 os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*row*col);
                 ASSERT(os,"os");
             }
-            void saveVector(ostream& os, const Vector<T>& vector) const{
+            static void save(ostream& os, const Vector<T>& vector){
                 size_t size=vector.size();
-                os<<size;
+                save(os,size);
                 T* buffer=vector.data().get();
                 os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*size);
                 ASSERT(os,"os");
