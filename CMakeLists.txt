@@ -10,5 +10,9 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 #test
 project(nn_runtime)
 include_directories(include)
-add_executable(test test.cpp)
+add_executable(nn_runtime_core_test test.cpp)
+
+enable_testing()
+add_test(NAME nn_runtime_core COMMAND ${CMAKE_HOME_DIRECTORY}/nn_runtime_core_test)
+
 

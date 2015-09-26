@@ -11,8 +11,9 @@ public class test {
         return Math.abs(u-v) <= 0.000001;
     }
     public static void main(String argv[]) {
-        String modelFile = "../build/model.bin";
+        String modelFile ="../build/model.bin";
         long handle=nn_runtime.load(modelFile);
+        assert(handle>0);
         IdVector ids=new IdVector();
         ids.add(0);
         ids.add(2);

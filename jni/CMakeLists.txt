@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8.9)
+
 project(nn_runtime_jni)
 
 # Enable C++11
@@ -26,6 +27,8 @@ include_directories(../include)
 include_directories(${JNI_INCLUDE_DIRS})
 
 swig_add_module(nn_runtime_jni java nn_runtime.i "nn_runtime.h" "nn_runtime.cpp")
+
+enable_testing()
 
 #cpp runtime test
 add_executable(nn_runtime_test "nn_runtime.cpp" "test.cpp")
