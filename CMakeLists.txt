@@ -12,6 +12,7 @@ project(nn_runtime)
 include_directories(include)
 add_executable(nn_runtime_core_test test.cpp)
 
+#make test to run test
 enable_testing()
 add_test(NAME nn_runtime_core COMMAND ${CMAKE_HOME_DIRECTORY}/nn_runtime_core_test)
 

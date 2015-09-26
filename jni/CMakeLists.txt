@@ -37,5 +37,5 @@ add_test(NAME nn_runtime_test COMMAND ${CMAKE_HOME_DIRECTORY}/nn_runtime_test)
 #jni test
 file(GLOB java_src nn_runtime_jni/*.java test.java)
 add_jar(nn_runtime_jni_test ${java_src} ENTRY_POINT test)
-get_target_property(_jarFile test JAR_FILE)
-add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -cp ${_jarFile} -so ${CMAKE_HOME_DIRECTORY}/libnn_runtime_jni.so)
+get_target_property(_jarFile nn_runtime_jni_test JAR_FILE)
+add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -Djava.library.path=${CMAKE_HOME_DIRECTORY} -jar ${_jarFile})
