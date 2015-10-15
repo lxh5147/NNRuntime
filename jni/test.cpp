@@ -7,7 +7,8 @@ using namespace nn;
 int main( int argc, const char* argv[] )
 {
     //run the test of runtime to generate this sample model
-    const char* modelFile="../build/model.bin";
+    ASSERT(argc==2,"argc");    
+    auto modelFile=argv[1];
     size_t handle=load(modelFile);
     ASSERT(handle,"handle");
     vector<vector<size_t>> idsInputs ={{0,2},{2}};

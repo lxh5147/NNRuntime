@@ -30,16 +30,19 @@ swig_add_module(nn_runtime_jni java nn_runtime.i "nn_runtime.h" "nn_runtime.cpp"
 
 enable_testing()
 
-#cpp runtime test
-add_executable(nn_runtime_test "nn_runtime.cpp" "test.cpp")
-get_target_property(nn_runtime_test_app nn_runtime_test LOCATION)
-add_test(NAME nn_runtime_test COMMAND ${nn_runtime_test_app})
 
-#jni test
+
+# Define test suites
 file(GLOB java_src nn_runtime_jni/*.java test.java)
 add_jar(nn_runtime_jni_test ${java_src} ENTRY_POINT test)
 get_target_property(jar_file nn_runtime_jni_test JAR_FILE)
 get_target_property(so_file nn_runtime_jni LOCATION)
 get_filename_component(nn_runtime_jni_folder ${so_file} DIRECTORY)
 
+#cpp test
+add_executable(nn_runtime_test "nn_runtime.cpp" "test.cpp")
+get_target_property(nn_runtime_test_app nn_runtime_test LOCATION)
+add_test(NAME nn_runtime_test COMMAND ${nn_runtime_test_app} ${nn_runtime_jni_folder}/../core/model.bin)
+
+#jni test
 add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -Djava.library.path=${nn_runtime_jni_folder} -jar ${jar_file} ${nn_runtime_jni_folder}/../core/model.bin)

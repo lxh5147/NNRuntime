@@ -13,6 +13,7 @@ This file defines the runtime of a neural network.
 #include <memory>
 #include <cmath>
 #include <cstring>
+#include <string>
 
 namespace nn {
     using namespace std;
@@ -20,8 +21,8 @@ namespace nn {
     #define ASSERT(condition, message) \
         do { \
             if (! (condition)) { \
-                cerr << "Assertion `" #condition "` failed in " << __FILE__ \
-                          << " line " << __LINE__ << ": " << message << endl; \
+                std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
+                          << " line " << __LINE__ << ": " << message << std::endl; \
                 exit(EXIT_FAILURE); \
             } \
         } while (false)
@@ -509,9 +510,9 @@ namespace nn {
     class NNModel {
         public:
             //Loads model from a binary file.
-            virtual void load(const char* modelPath)=0;
+            virtual void load(const string& modelPath)=0;
             //Saves this model to a binary file.
-            virtual void save(const char* modelPath) const=0;
+            virtual void save(const string& modelPath) const=0;
             //Predicts with ids as inputs.
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const=0;
         public:
@@ -607,8 +608,7 @@ namespace nn {
                 }
                 return m_pRuntime->calc(inputs);
             }
-            virtual void load(const char* modelPath){
-                ASSERT(modelPath,"modelPath");
+            virtual void load(const string& modelPath){               
                 ifstream is(modelPath,ios::binary);
                 ASSERT(is.is_open(),"is");
                 cleanIfNeeded();
@@ -617,8 +617,7 @@ namespace nn {
                 is.close();
                 initRuntime();
             }
-            virtual void save(const char* modelPath) const{
-                ASSERT(modelPath,"modelPath");
+            virtual void save(const string& modelPath) const{
                 ofstream os(modelPath, ios::binary);
                 ASSERT(os.is_open(),"os");
                 saveInputsInfo(os);
@@ -744,7 +743,7 @@ namespace nn {
             template<typename V>
             static void save(ostream& os, const V& value){
                 os.write(reinterpret_cast<const char*>(&value),sizeof(V));
-            }            
+            }          
             static void save(ostream& os, const Matrix<T>& matrix){
                 size_t row=matrix.row();
                 size_t col=matrix.col();
@@ -779,6 +778,12 @@ namespace nn {
             vector<shared_ptr<Vector<T>>> m_biasVectors;
     };
 
+    template<typename T>
+    shared_ptr<MLPModel<T>> newMLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds){
+        MLPModel<T>* pModel=new MLPModel<T>(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
+        return make_shared_ptr(pModel);
+    }
+    
     //Defines helper function to compare two values.
     template<typename T, typename U>
     bool equals (const T& t1, const U& t2){
