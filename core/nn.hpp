@@ -478,14 +478,17 @@ namespace nn {
     template <class T>
     class ActivationFunctions{
         public:
-            enum:int {TANH=0,RELU=1};
+            enum:int {TANH=0,RELU=1,IDENTITY=2};
             //Gets the well-known activation functions with its id.
             static const function<T(const T&)>& get(int id ){
-                ASSERT(id==TANH||id==RELU,"id");
+                ASSERT(id==TANH||id==RELU||id==IDENTITY,"id");
                 if(id==TANH){
                     return Tanh();
                 }
-                return ReLU();
+                if(id==RELU){
+                    return ReLU();
+                }
+                return Identity();
             }
         private:
             static const function<T(const T&)>& Tanh(){
@@ -496,12 +499,19 @@ namespace nn {
                 static function<T(const T&)> instance(_ReLU);
                 return instance;
             }
+            static const function<T(const T&)>& Identity(){
+                static function<T(const T&)> instance(_Identity);
+                return instance;
+            }            
         private:
             static T _Tanh(const T& t){
                 return tanh(t);
             }
             static T _ReLU(const T& t){
                 return t>0?t:0;
+            }
+            static T _Identity(const T& t){
+                return t;
             }
     }; 
 

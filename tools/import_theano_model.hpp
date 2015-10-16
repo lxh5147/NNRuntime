@@ -167,16 +167,19 @@ namespace nn_tools {
                     theanoModel.loadInputInfo(feature,embeddings,inputsInfo,false);
                 }
                 //prepare layers
+                auto activationFunctionId=getActivationFunctionId(theanoModel.m_activationFunction);
                 vector<shared_ptr<Matrix<T>>> weights;
                 vector<shared_ptr<Vector<T>>> biasVectors;
                 vector<size_t> activationFunctionIds;
                 for(size_t i=0;i<theanoModel.m_numberOfHiddenLayers;++i){
                     string name="h";
                     name+=to_string(i);
-                    theanoModel.loadLayer(name,weights,biasVectors,activationFunctionIds);
+                    theanoModel.loadLayer(name,weights,biasVectors);
+                    activationFunctionIds.push_back(activationFunctionId);
                 }
-                //append output layer
-                theanoModel.loadLayer("output",weights,biasVectors,activationFunctionIds);
+                //append output layer, which is a layer with Identity activation function
+                theanoModel.loadLayer("output",weights,biasVectors);
+                activationFunctionIds.push_back(ActivationFunctions<T>::IDENTITY);
                 return newMLPModel(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
             }
         private:
@@ -195,7 +198,7 @@ namespace nn_tools {
                     inputsInfo.push_back(newInputInfo(*embedding));
                 }
             }
-            void loadLayer(const string& name, vector<shared_ptr<Matrix<T>>>& weights,vector<shared_ptr<Vector<T>>>& biasVectors,vector<size_t>& activationFunctionIds){
+            void loadLayer(const string& name, vector<shared_ptr<Matrix<T>>>& weights,vector<shared_ptr<Vector<T>>>& biasVectors){
                 //weight:W_[name].npy, e.g., W_h0.npy
                 string weightFile="W_";
                 weightFile+=name;
@@ -208,8 +211,7 @@ namespace nn_tools {
                 vectorFile+=name;
                 vectorFile+=".npy";
                 auto biasVector=loadVector(getFilePath(m_path,vectorFile));
-                biasVectors.push_back(biasVector);
-                activationFunctionIds.push_back(getActivationFunctionId(m_activationFunction));
+                biasVectors.push_back(biasVector);               
             }
             static size_t getActivationFunctionId(const string& activationFunctionName){
                 //TODO: support other types of activation functions
