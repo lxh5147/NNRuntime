@@ -344,7 +344,7 @@ namespace nn {
                 int start=(int)pos-(int)m_contextLength;
                 int end=pos+m_contextLength;
                 for(int i=start;i<=end;++i) {
-                    size_t id=i>=0 && i < size ? m_idSequence[i]:PADDING_ID;
+                    size_t id=i>=0 && (size_t)i < size ? m_idSequence[i]:PADDING_ID;
                     memcpy(buffer, embeddingBuffer+id*col, sizeof(T)*col);
                     buffer+= col;
                 }

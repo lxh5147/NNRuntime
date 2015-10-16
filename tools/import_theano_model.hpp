@@ -73,7 +73,7 @@ namespace nn_tools {
             }
             static void read(ifstream& is,char* buffer, size_t size){
                 is.read(buffer,size);
-                ASSERT(is.gcount()==size,"readed");
+                ASSERT((size_t)is.gcount()==size,"readed");
             }
         private:
             string m_file;
@@ -96,7 +96,7 @@ namespace nn_tools {
         }
         return newMatrix(data,row,col);
     }
-    
+
     //Defines helper functions to load json file, and to extract values from json string.
     class JsonUtil{
         public:
@@ -107,7 +107,7 @@ namespace nn_tools {
                 ex+="\"";
                 ex+=":";
                 //trim '"' when applicable, not greedy match
-                ex+="\"?([^,\"]+)";
+                ex+="\"?([^,\"\\}]+)";
                 regex re(ex);
                 smatch match;
                 if(regex_search(jsonContent,match,re)){
@@ -143,9 +143,11 @@ namespace nn_tools {
                     rawStringValues = match.suffix().str();
                 }
                 return stringValues;
-            }           
+            }
+        private:
+            JsonUtil(){}
     };
-    
+
     //Defines theano MLP models, which are saved into a folder.
     template <typename T>
     class TheanoModel{
@@ -252,7 +254,7 @@ namespace nn_tools {
                 filePath+="/";
                 filePath+=file;
                 return filePath;
-            }          
+            }
             static string loadTextFileIntoString(const string& txtFile){
                 //refer to: http://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
                 ifstream is(txtFile);

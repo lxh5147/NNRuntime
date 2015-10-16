@@ -46,9 +46,7 @@ void transpose_test(){
 }
 
 void json_util_get_value_test(){   
-             //debug
-    regex ee("a[a-z]*");
-    //ASSERT(JsonUtil::getJsonValue("\"num_hidden\": 2, \"conv\": 32","num_hidden")=="2","num_hidden");
+    ASSERT(JsonUtil::getJsonValue("\"num_hidden\": 2, \"conv\": 32","num_hidden")=="2","num_hidden");
 }
 
 void integration_test(const string& path){
