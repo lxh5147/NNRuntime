@@ -119,7 +119,7 @@ namespace nn_tools {
                 }
             }
             //Gets json array value for the given key. Enclosed '"' of any json string value are removed.
-            static vector<string> getJsonStringValues(const string& jsonContent, const char* key){
+            static vector<string> getJsonStringValues(const string& jsonContent, const string& key){
                 string rawValuesExp="\"";
                 rawValuesExp+=key;
                 rawValuesExp+="\"";
