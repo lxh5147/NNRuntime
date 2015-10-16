@@ -16,10 +16,11 @@ This file defines the runtime of a neural network.
 namespace nn_tools {
     using namespace std;
     using namespace nn;
-
+    //Defines NPY binary file model.
     template <typename T>
     class NPYData {
         public:
+            //Gets matrix stored in this NPY file.
             shared_ptr<Matrix<T>> getData() {
                 if(m_data==nullptr){
                     loadData();
@@ -79,6 +80,7 @@ namespace nn_tools {
             shared_ptr<Matrix<T>> m_data;
     };
 
+    //Gets the transposed matrix.
     template<typename T>
     shared_ptr<Matrix<T>> transpose(const Matrix<T>& matrix){
         //in-place transpose is complicated when m!=n, refer to https://en.wikipedia.org/wiki/In-place_matrix_transposition.
@@ -94,7 +96,8 @@ namespace nn_tools {
         }
         return newMatrix(data,row,col);
     }
-
+    
+    //Defines theano MLP models, which are saved into a folder.
     template <typename T>
     class TheanoModel{
         public:
@@ -127,6 +130,7 @@ namespace nn_tools {
             }
         private:
              void loadInputInfo(const string& feature, vector<shared_ptr<Matrix<T>>>& embeddings, vector<shared_ptr<InputInfo<T>>>& inputsInfo, bool isSequenceFeature){
+                //embedding:W_[feature name].npy, e.g., W_words.npy
                 string embeddingFile="W_";
                 embeddingFile+=feature;
                 embeddingFile+=".npy";
@@ -140,11 +144,13 @@ namespace nn_tools {
                 }
             }
             void loadLayer(const string& name, vector<shared_ptr<Matrix<T>>>& weights,vector<shared_ptr<Vector<T>>>& biasVectors,vector<size_t>& activationFunctionIds){
+                //weight:W_[name].npy, e.g., W_h0.npy
                 string weightFile="W_";
                 weightFile+=name;
                 weightFile+=".npy";
                 auto weight=loadMatrix(getFilePath(m_path,weightFile));
                 weights.push_back(weight);
+                //bias:b_[name].npy, e.g., b_h0.npy
                 string vectorFile="b_";
                 vectorFile+=name;
                 vectorFile+=".npy";
@@ -153,6 +159,7 @@ namespace nn_tools {
                 activationFunctionIds.push_back(getActivationFunctionId(m_activationFunction));
             }
             static size_t getActivationFunctionId(const string& activationFunctionName){
+                //TODO: support other types of activation functions
                 ASSERT(activationFunctionName=="relu"||activationFunctionName=="tanh","activationFunctionName");
                 if(activationFunctionName=="relu"){
                     return ActivationFunctions<T>::RELU;
@@ -181,14 +188,12 @@ namespace nn_tools {
             TheanoModel(const string& path):m_path(path), m_poolingId(Poolings<T>::AVG){}
         private:
             void loadManifest(){
-                string content;
-                loadTextFileIntoString(getFilePath(m_path,"MANIFEST.json"),content);
+                string content=loadTextFileIntoString(getFilePath(m_path,"MANIFEST.json"));
                 m_sequenceFeatures=getJsonStringValues(content,"word_input_features");
                 m_nonSequenceFeatures=getJsonStringValues(content,"query_input_features");
             }
             void loadHyperparams(){
-                string content;
-                loadTextFileIntoString(getFilePath(m_path,"hyperparams.json"),content);
+                string content=loadTextFileIntoString(getFilePath(m_path,"hyperparams.json"));
                 m_activationFunction=getJsonValue(content,"activ");
                 m_numberOfHiddenLayers=stoi(getJsonValue(content,"num_hidden"));
                 m_contextLength=stoi(getJsonValue(content,"context"));
@@ -199,26 +204,28 @@ namespace nn_tools {
                 filePath+=file;
                 return filePath;
             }
-            static void loadTextFileIntoString(const string& txtFile, string& content){
+            static string loadTextFileIntoString(const string& txtFile){
                 //refer to: http://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
                 ifstream is(txtFile);
                 ASSERT(is.is_open(),"is");
                 is.seekg(0, ios::end);
+                string content;
                 content.reserve(is.tellg());
                 is.seekg(0, ios::beg);
                 content.assign((istreambuf_iterator<char>(is)),istreambuf_iterator<char>());
+                return content;
             }
             static string getJsonValue(const string& jsonContent, const string& key){
                 string ex="\"";
                 ex+=key;
                 ex+="\"";
                 ex+=":";
-                //trim '"' when applicable
+                //trim '"' when applicable, not greedy match
                 ex+="\"?([^,\"]+)";
                 regex re(ex);
                 smatch match;
-                if(regex_search (jsonContent,match,re)){
-                    //get capture group:0 whole match, 1 first group
+                if(regex_search(jsonContent,match,re)){
+                    //capture group:0 whole match, 1 first group
                     return match[1];
                 }
                 else{
@@ -230,12 +237,11 @@ namespace nn_tools {
                 rawValuesExp+=key;
                 rawValuesExp+="\"";
                 rawValuesExp+=":";
-                //trim '"' when applicable
-                rawValuesExp+="\[([^\]]+)\]";
+                rawValuesExp+="\\[([^\\]]+)\\]";
                 regex rawValuesRe(rawValuesExp);
                 smatch match;
                 vector<string> stringValues;
-                if(!regex_search (jsonContent,match,rawValuesRe)){
+                if(!regex_search(jsonContent,match,rawValuesRe)){
                     return stringValues;
                 }
                 //get capture group:0 whole match, 1 first group, example raw value: "prefix_1", "prefix_2"
