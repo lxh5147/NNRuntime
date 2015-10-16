@@ -185,6 +185,7 @@ namespace nn_tools {
                 string embeddingFile="W_";
                 embeddingFile+=feature;
                 embeddingFile+=".npy";
+                //one row one embedding
                 auto embedding=loadMatrix(getFilePath(m_path,embeddingFile));
                 embeddings.push_back(embedding);
                 if(isSequenceFeature){
@@ -200,7 +201,8 @@ namespace nn_tools {
                 weightFile+=name;
                 weightFile+=".npy";
                 auto weight=loadMatrix(getFilePath(m_path,weightFile));
-                weights.push_back(weight);
+                //transpose, since theano uses row vector(m*n where m is the number of input nodes) based weight matrix, while runtime uses colum vector based weight matrix
+                weights.push_back(transpose(*weight));
                 //bias:b_[name].npy, e.g., b_h0.npy
                 string vectorFile="b_";
                 vectorFile+=name;
@@ -220,14 +222,10 @@ namespace nn_tools {
                 }
             }
             static shared_ptr<Matrix<T>> loadMatrix(const string& npyFile){
-                NPYData<T> npyData(npyFile);
-                auto pMatrix=npyData.getData();
-                //theano uses row vector* (m*n matrix); nn runtime uses column vecctor.theano matrix is transposed: (n*m matrix) * column vector.
-                return  transpose(*pMatrix);
+                return NPYData<T>(npyFile).getData();
             }
             static shared_ptr<Vector<T>> loadVector(const string& npyFile){
-                NPYData<T> npyData(npyFile);
-                auto pMatrix=npyData.getData();
+                auto pMatrix=NPYData<T>(npyFile).getData();
                 ASSERT(pMatrix->col()==1,"col");
                 size_t size=pMatrix->row();
                 auto data = new T[size];
