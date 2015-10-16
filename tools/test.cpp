@@ -19,10 +19,39 @@ bool equals (Vector<T>& t1, Vector<T>& t2){
     return true;
 }
 
-//test with the toy model
-int main( int argc, const char* argv[] ){
-    ASSERT(argc==2,"argc");
-    auto path=argv[1];
+template<typename T>
+bool equals (Matrix<T>& m1, Matrix<T>& m2){
+    if(m1.row()!=m2.row()){
+        return false;
+    }
+    if(m1.col()!=m2.col()){
+        return false;
+    }    
+    size_t size=m1.row()*m1.col();
+    T* data1=m1.data().get();
+    T* data2=m2.data().get();
+    for(size_t i=0;i<size;++i){
+        if(!equals(data1[i],data2[i])){
+            return false;
+        }
+    }
+    return true;
+}
+
+void transpose_test(){
+    auto w=newMatrix(new float[2*3]{1,2,3,4,5,6},2,3);
+    auto actual=transpose(*w);
+    auto expected=newMatrix(new float[3*2]{1,4,2,5,3,6},3,2);
+    ASSERT(equals(*actual,*expected),"transpose");
+}
+
+void json_util_get_value_test(){   
+             //debug
+    regex ee("a[a-z]*");
+    //ASSERT(JsonUtil::getJsonValue("\"num_hidden\": 2, \"conv\": 32","num_hidden")=="2","num_hidden");
+}
+
+void integration_test(const string& path){
     auto model=nn_tools::TheanoModel<float>::load(path);
     //sequence: "prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words" 
     //non sequence:field_ids
@@ -31,4 +60,12 @@ int main( int argc, const char* argv[] ){
     auto actual=model->predict(idsInputs);
     Vector<float> expected(make_shared_ptr(new float[12]{5.202937147959219022e-15,7.204790251544562069e-16,4.699654877185821533e-01,2.974174683913588524e-03,7.035437738522887230e-04,3.561305114999413490e-03,5.101346969604492188e-01,1.178610837087035179e-03,4.170435015112161636e-03,6.723115802742540836e-04,3.287334693595767021e-03,3.352134721353650093e-03}),12);
     ASSERT(equals(actual,expected),"prediction");
+}
+
+int main( int argc, const char* argv[] ){
+    transpose_test();
+    json_util_get_value_test();
+    ASSERT(argc==2,"argc");
+    //integration test with toy model
+    //integration_test(argv[1]);
 }

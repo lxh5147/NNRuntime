@@ -96,7 +96,56 @@ namespace nn_tools {
         }
         return newMatrix(data,row,col);
     }
-
+    
+    //Defines helper functions to load json file, and to extract values from json string.
+    class JsonUtil{
+        public:
+            //Gets json value for the given key. Enclosed '"' of any json string value are removed.
+            static string getJsonValue(const string& jsonContent, const string& key){
+                string ex="\"";
+                ex+=key;
+                ex+="\"";
+                ex+=":";
+                //trim '"' when applicable, not greedy match
+                ex+="\"?([^,\"]+)";
+                regex re(ex);
+                smatch match;
+                if(regex_search(jsonContent,match,re)){
+                    //capture group:0 whole match, 1 first group
+                    return match[1];
+                }
+                else{
+                    return "";
+                }
+            }
+            //Gets json array value for the given key. Enclosed '"' of any json string value are removed.
+            static vector<string> getJsonStringValues(const string& jsonContent, const char* key){
+                string rawValuesExp="\"";
+                rawValuesExp+=key;
+                rawValuesExp+="\"";
+                rawValuesExp+=":";
+                rawValuesExp+="\\[([^\\]]+)\\]";
+                regex rawValuesRe(rawValuesExp);
+                smatch match;
+                vector<string> stringValues;
+                if(!regex_search(jsonContent,match,rawValuesRe)){
+                    return stringValues;
+                }
+                //get capture group:0 whole match, 1 first group, example raw value: "prefix_1", "prefix_2"
+                string rawStringValues=match[1];
+                string valueExp="\"";
+                valueExp+="([^\"]+)";
+                valueExp+="\"";
+                valueExp+=",?";
+                regex valueRe(valueExp);
+                while (regex_search (rawStringValues,match,valueRe)) {
+                    stringValues.push_back(match[1]);
+                    rawStringValues = match.suffix().str();
+                }
+                return stringValues;
+            }           
+    };
+    
     //Defines theano MLP models, which are saved into a folder.
     template <typename T>
     class TheanoModel{
@@ -189,21 +238,21 @@ namespace nn_tools {
         private:
             void loadManifest(){
                 string content=loadTextFileIntoString(getFilePath(m_path,"MANIFEST.json"));
-                m_sequenceFeatures=getJsonStringValues(content,"word_input_features");
-                m_nonSequenceFeatures=getJsonStringValues(content,"query_input_features");
+                m_sequenceFeatures=JsonUtil::getJsonStringValues(content,"word_input_features");
+                m_nonSequenceFeatures=JsonUtil::getJsonStringValues(content,"query_input_features");
             }
             void loadHyperparams(){
                 string content=loadTextFileIntoString(getFilePath(m_path,"hyperparams.json"));
-                m_activationFunction=getJsonValue(content,"activ");
-                m_numberOfHiddenLayers=stoi(getJsonValue(content,"num_hidden"));
-                m_contextLength=stoi(getJsonValue(content,"context"));
+                m_activationFunction=JsonUtil::getJsonValue(content,"activ");
+                m_numberOfHiddenLayers=stoi(JsonUtil::getJsonValue(content,"num_hidden"));
+                m_contextLength=stoi(JsonUtil::getJsonValue(content,"context"));
             }
             static string getFilePath(const string& root, const string& file){
                 string filePath=root;
                 filePath+="/";
                 filePath+=file;
                 return filePath;
-            }
+            }          
             static string loadTextFileIntoString(const string& txtFile){
                 //refer to: http://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
                 ifstream is(txtFile);
@@ -214,48 +263,6 @@ namespace nn_tools {
                 is.seekg(0, ios::beg);
                 content.assign((istreambuf_iterator<char>(is)),istreambuf_iterator<char>());
                 return content;
-            }
-            static string getJsonValue(const string& jsonContent, const string& key){
-                string ex="\"";
-                ex+=key;
-                ex+="\"";
-                ex+=":";
-                //trim '"' when applicable, not greedy match
-                ex+="\"?([^,\"]+)";
-                regex re(ex);
-                smatch match;
-                if(regex_search(jsonContent,match,re)){
-                    //capture group:0 whole match, 1 first group
-                    return match[1];
-                }
-                else{
-                    return "";
-                }
-            }
-            static vector<string> getJsonStringValues(const string& jsonContent, const char* key){
-                string rawValuesExp="\"";
-                rawValuesExp+=key;
-                rawValuesExp+="\"";
-                rawValuesExp+=":";
-                rawValuesExp+="\\[([^\\]]+)\\]";
-                regex rawValuesRe(rawValuesExp);
-                smatch match;
-                vector<string> stringValues;
-                if(!regex_search(jsonContent,match,rawValuesRe)){
-                    return stringValues;
-                }
-                //get capture group:0 whole match, 1 first group, example raw value: "prefix_1", "prefix_2"
-                string rawStringValues=match[1];
-                string valueExp="\"";
-                valueExp+="([^\"]+)";
-                valueExp+="\"";
-                valueExp+=",?";
-                regex valueRe(valueExp);
-                while (regex_search (rawStringValues,match,valueRe)) {
-                    stringValues.push_back(match[1]);
-                    rawStringValues = match.suffix().str();
-                }
-                return stringValues;
             }
         private:
              string m_path;
