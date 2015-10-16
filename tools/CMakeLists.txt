@@ -14,9 +14,25 @@ include_directories(../core)
 
 #Defines test suites
 enable_testing()
+
+
+
+#test
 add_executable(theano_model_importer_test "test.cpp")
-get_target_property(theano_model_importer_test_app theano_model_importer_test LOCATION)
-add_test(NAME theano_model_importer_test COMMAND ${theano_model_importer_test_app})
+
+get_target_property(test_exe_file theano_model_importer_test LOCATION)
+get_filename_component(test_folder ${test_exe_file} DIRECTORY)
+
+#unzip toy model
+set_source_files_properties(unzip_toy_model PROPERTIES GENERATED true)
+add_custom_target(unzip_toy_model
+    COMMAND unzip toy_nbow.model.zip -d toy_nbow_model
+    WORKING_DIRECTORY ${test_folder})
+    
+    
+add_test(NAME theano_model_importer_test COMMAND ${theano_model_importer_test_app} ${test_folder}/toy_nbow_model )
+
+add_dependencies(theano_model_importer_test unzip_toy_model)
 
 # Build the tool
 add_executable(import_theano_model "tool_import_theano_model.cpp")
