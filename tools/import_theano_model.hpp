@@ -96,7 +96,7 @@ namespace nn_tools {
         }
         return newMatrix(data,row,col);
     }
-    
+
     //Defines theano MLP models, which are saved into a folder.
     template <typename T>
     class TheanoModel{
