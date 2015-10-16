@@ -105,7 +105,7 @@ namespace nn_tools {
                 string ex="\"";
                 ex+=key;
                 ex+="\"";
-                ex+=":";
+                ex+=":\\s*";
                 //trim '"' when applicable, not greedy match
                 ex+="\"?([^,\"\\}]+)";
                 regex re(ex);
@@ -123,7 +123,7 @@ namespace nn_tools {
                 string rawValuesExp="\"";
                 rawValuesExp+=key;
                 rawValuesExp+="\"";
-                rawValuesExp+=":";
+                rawValuesExp+=":\\s*";
                 rawValuesExp+="\\[([^\\]]+)\\]";
                 regex rawValuesRe(rawValuesExp);
                 smatch match;
@@ -132,11 +132,11 @@ namespace nn_tools {
                     return stringValues;
                 }
                 //get capture group:0 whole match, 1 first group, example raw value: "prefix_1", "prefix_2"
+                //gready match
                 string rawStringValues=match[1];
                 string valueExp="\"";
                 valueExp+="([^\"]+)";
                 valueExp+="\"";
-                valueExp+=",?";
                 regex valueRe(valueExp);
                 while (regex_search (rawStringValues,match,valueRe)) {
                     stringValues.push_back(match[1]);
@@ -268,7 +268,7 @@ namespace nn_tools {
             }
         private:
              string m_path;
-            //{"query_input_features": ["field_ids"], "word_input_features": ["prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words"],
+            //{"query_input_features": ["field_ids"], "word_input_features": ["prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words"]}
             vector<string> m_sequenceFeatures;
             vector<string> m_nonSequenceFeatures;
             //"num_hidden": 2, "conv": 32, "dropout": 0.5, "batch_size": 100, "feature_dim": 20, "learning_rate_base": 0.0025, "decrease": 0.0, "learning": "n3lu.learning.RMSPROP", "rmsprop_decay": 0.95, "max_epochs": 20, "hidden": 64, "subtensor_adaptive_lr": true, "activ": "relu", "learning_rate_proj": 0.4, "seed": 1234, "patience_epochs": 20, "context": 3,

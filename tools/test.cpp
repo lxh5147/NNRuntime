@@ -26,7 +26,7 @@ bool equals (Matrix<T>& m1, Matrix<T>& m2){
     }
     if(m1.col()!=m2.col()){
         return false;
-    }    
+    }
     size_t size=m1.row()*m1.col();
     T* data1=m1.data().get();
     T* data2=m2.data().get();
@@ -45,13 +45,22 @@ void transpose_test(){
     ASSERT(equals(*actual,*expected),"transpose");
 }
 
-void json_util_get_value_test(){   
-    ASSERT(JsonUtil::getJsonValue("\"num_hidden\": 2, \"conv\": 32","num_hidden")=="2","num_hidden");
+void json_util_get_value_test(){
+    ASSERT(JsonUtil::getJsonValue("{\"num_hidden\": 2, \"conv\": 32}","num_hidden")=="2","num_hidden");
+    ASSERT(JsonUtil::getJsonValue("{\"num_hidden\": 2, \"conv\": 32}","conv")=="32","conv");
+    ASSERT(JsonUtil::getJsonValue("{\"name\": \"zeen\", \"conv\": 32}","name")=="zeen","name");
+}
+
+void json_util_get_string_values_test(){
+    vector<string> expectedValues1={"v1"};
+    ASSERT(JsonUtil::getJsonStringValues("{\"values1\": [\"v1\"], \"values2\": [\"prefix_1\", \"prefix_2\"]","values1")==expectedValues1,"values1");
+    vector<string> expectedValues2={"prefix_1","prefix_2"};
+    ASSERT(JsonUtil::getJsonStringValues("{\"values1\": [\"v1\", \"v2\" ], \"values2\": [\"prefix_1\", \"prefix_2\"]","values2")==expectedValues2,"values2");
 }
 
 void integration_test(const string& path){
     auto model=nn_tools::TheanoModel<float>::load(path);
-    //sequence: "prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words" 
+    //sequence: "prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words"
     //non sequence:field_ids
     vector<vector<size_t>> idsInputs ={{16,0,3,8,19,10},{157,0,3,90,29,328},{0,0,0,145,0,1683},{10,0,3,11,13,3},{134,0,3,16,27,63},{0,0,0,140,0,100},{611,0,3,175,37,6181}};
     //compare predictions
@@ -63,6 +72,7 @@ void integration_test(const string& path){
 int main( int argc, const char* argv[] ){
     transpose_test();
     json_util_get_value_test();
+    json_util_get_string_values_test();
     ASSERT(argc==2,"argc");
     //integration test with toy model
     //integration_test(argv[1]);
