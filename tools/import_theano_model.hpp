@@ -148,33 +148,6 @@ namespace nn_tools {
             JsonUtil(){}
     };
 
-    //debug helper functions
-    template<typename T>
-    void dump(const Vector<T>& vector){
-        cout<<"size="<<vector.size()<<endl;
-        T* data=vector.data().get();
-        for(size_t i=0;i<vector.size();++i){
-            cout<<data[i]<<" ";
-        }
-        cout<<endl;
-    }
-
-    template<typename T>
-    void dump(const Matrix<T>& matrix){
-        size_t row=matrix.row();
-        size_t col=matrix.col();
-        cout<<"row="<<row<<","<<"col="<<col<<endl;
-        T* data=matrix.data().get();
-        cout.setf(ios::fixed,ios::floatfield);
-        cout.precision(5);
-        for(size_t i=0;i<row;++i){
-            for(size_t j=0;j<col;++j){
-               cout<<data[i*col+j]<<" ";
-            }
-            cout<<endl;
-        }
-    }
-
     //Defines theano MLP models, which are saved into a folder.
     template <typename T>
     class TheanoModel{
