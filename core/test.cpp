@@ -54,6 +54,20 @@ void matrixMultiplyTest(){
     ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
 }
 
+void activationFunctionTest(){
+    auto func=ActivationFunctions<float>::get(ActivationFunctions<float>::TANH);
+    auto input=0.23f;
+    ASSERT(equals(func(input),tanh(input)),"tanh");
+    func=ActivationFunctions<float>::get(ActivationFunctions<float>::RELU);
+    input=0.25f;
+    ASSERT(equals(func(input),input),"relu");
+    ASSERT(equals(func(-input),0),"relu");
+    func=ActivationFunctions<float>::get(ActivationFunctions<float>::IDENTITY);
+    input=0.25f;
+    ASSERT(equals(func(input),input),"identity");
+    ASSERT(equals(func(-input),-input),"identity");
+}
+
 void hiddenLayerTest(){
     Matrix<float> W(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
     Vector<float> b(make_shared_ptr(new float[2]{1.5,1.8}),2);
@@ -63,6 +77,45 @@ void hiddenLayerTest(){
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , tanh(2.9f)), "r[0]");
     ASSERT(equals(r.data().get()[1] , tanh(5.0f)), "r[1]");
+}
+
+template<typename T>
+class InputVectorIterator: public Iterator<Vector<T>>{
+    public:
+        virtual bool next(Vector<T>& buffer) {
+            if(m_pos>=m_vectors.size()){
+                return false;
+            }
+            //copy to the buffer
+            memcpy(buffer.data().get(), m_vectors[m_pos].data().get(), sizeof(T)*buffer.size());
+            ++m_pos;
+            return true;
+        }
+        InputVectorIterator<T>& reset(){
+            m_pos=0;
+            return *this;
+        }
+    public:
+        InputVectorIterator(const vector<Vector<T>>& vectors):m_vectors(vectors),m_pos(0){}
+    private:
+        vector<Vector<T>> m_vectors;
+        size_t m_pos;
+};
+
+void poolingTest(){
+    vector<Vector<float>> vectors={Vector<float>(make_shared_ptr(new float[2]{1.0,2.0}),2),Vector<float>(make_shared_ptr(new float[2]{0.8,3.2}),2)};
+    Vector<float> buffer(make_shared_ptr(new float[2]),2);
+    Vector<float> output(make_shared_ptr(new float[2]),2);
+    InputVectorIterator<float> inputVectors(vectors);
+    Poolings<Vector<float>>::get(Poolings<float>::AVG).calc(output,inputVectors,buffer);
+    ASSERT(equals(output.data().get()[0],0.9f), "output");
+    ASSERT(equals(output.data().get()[1],2.6f), "output");
+    Poolings<Vector<float>>::get(Poolings<float>::SUM).calc(output,inputVectors.reset(),buffer);
+    ASSERT(equals(output.data().get()[0],1.8f), "output");
+    ASSERT(equals(output.data().get()[1],5.2f), "output");
+    Poolings<Vector<float>>::get(Poolings<float>::MAX).calc(output,inputVectors.reset(),buffer);
+    ASSERT(equals(output.data().get()[0],1.0f), "output");
+    ASSERT(equals(output.data().get()[1],3.2f), "output");
 }
 
 void sequenceInputTest(){
@@ -193,6 +246,8 @@ int main( int argc, const char* argv[] )
     vectorApplyTest();
     vectorAggregateTest();
     matrixMultiplyTest();
+    activationFunctionTest();
+    poolingTest();
     hiddenLayerTest();
     sequenceInputTest();
     nonSequenceInputTest();

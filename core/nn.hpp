@@ -328,7 +328,6 @@ namespace nn {
             SequenceInput(const vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding, const Pooling<Vector<T>>& pooling):
                 Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength),m_pooling(pooling){
                 ASSERT(m_idSequence.size()>0,"idSequence");
-                ASSERT(contextLength>=0,"contextLength");
                 for(auto &id:idSequence){
                     ASSERT(id < embedding.row(),"id");
                 }
