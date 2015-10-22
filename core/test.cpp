@@ -211,15 +211,19 @@ void MLPModelTest(){
     //describe model in memory
     vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.4},3,2),newMatrix(new float[3*2]{0,0,0.3,0.8,0.2,0.9},3,2)};
     auto inputsInfo={newInputInfo(*embeddings[0],1,Poolings<Vector<float>>::AVG),newInputInfo(*embeddings[1])};
-    auto weights={newMatrix(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}, 2,8)};
-    auto biasVectors={newVector(new float[2]{0.1,0.2},2)};
+    //two hidden layers
+    auto weights={newMatrix(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}, 2,8),newMatrix(new float[2*2] {0.2,0.3,0.1,0.5}, 2,2)};
+    auto biasVectors={newVector(new float[2]{0.1,0.2},2),newVector(new float[2]{0.3,0.4},2)};
     vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH};
     MLPModel<float> model(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
     //predict
     vector<vector<size_t>> idsInputs ={{0,2},{2}};
     auto r=model.predict(idsInputs);
-    auto t1=tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
-    auto t2=tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
+    auto oh11=tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
+    auto oh12=tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
+    auto t1=tanh(oh11*0.2 + oh12*0.3+0.3);
+    auto t2=tanh(oh11*0.1 + oh12*0.5+0.4);
+    //soft max
     auto o1=exp(t1)/(exp(t1)+exp(t2));
     auto o2=exp(t2)/(exp(t1)+exp(t2));
     ASSERT(r.size() == 2, "r");

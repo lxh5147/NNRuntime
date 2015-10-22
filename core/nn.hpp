@@ -643,10 +643,7 @@ namespace nn {
                 initRuntime();
             }
             ~MLPModel(){
-                if(m_pRuntime){
-                    delete m_pRuntime;
-                    m_pRuntime=nullptr;
-                }
+                cleanIfNeeded();
             }
         private:        
             void initRuntime(){
