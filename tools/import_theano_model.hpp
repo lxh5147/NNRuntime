@@ -152,7 +152,7 @@ namespace nn_tools {
     template <typename T>
     class TheanoModel{
         public:
-            static shared_ptr<MLPModel<T>> load(const string& path){
+            static shared_ptr<MLPModel<T>> load(const string& path, bool includeOutputSoftmaxLayer=true){
                 TheanoModel<T> theanoModel(path);
                 //load manifest and hyper parameters
                 theanoModel.loadManifest();
@@ -177,9 +177,11 @@ namespace nn_tools {
                     theanoModel.loadLayer(name,weights,biasVectors);
                     activationFunctionIds.push_back(activationFunctionId);
                 }
-                //append output layer, which is a layer with Identity activation function
-                theanoModel.loadLayer("output",weights,biasVectors);
-                activationFunctionIds.push_back(ActivationFunctions<T>::IDENTITY);
+                if(includeOutputSoftmaxLayer){
+                    //append output layer, which is a layer with Identity activation function. For models including the output layer, the model must be loaded with normalizeOutputWithSoftmax=true (which is the default value); for models not including the output layer, the model must be loaded with normalizeOutputWithSoftmax=false.
+                    theanoModel.loadLayer("output",weights,biasVectors);
+                    activationFunctionIds.push_back(ActivationFunctions<T>::IDENTITY);
+                }
                 return newMLPModel(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
             }
         private:
