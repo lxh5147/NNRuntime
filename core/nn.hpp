@@ -633,8 +633,8 @@ namespace nn {
                 saveHiddenLayers(os);
             }
         public:
-            MLPModel():m_pRuntime(nullptr){}
-            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds){
+            MLPModel(bool normalizeOutputWithSoftmax=true):m_pRuntime(nullptr),m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){}
+            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds,bool normalizeOutputWithSoftmax=true):m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){
                 append(m_inputsInfo, inputsInfo);
                 append(m_embeddings,embeddings);
                 append(m_weights,weights);
@@ -652,7 +652,9 @@ namespace nn {
                 for(size_t i=0;i<total;++i){
                     layers.push_back(make_shared_ptr(new HiddenLayer<T>(*m_weights[i],*m_biasVectors[i],ActivationFunctions<T>::get(m_activationFunctionIds[i]))));
                 }
-                layers.push_back(make_shared_ptr(new SoftmaxLayer<T>()));
+                if(m_normalizeOutputWithSoftmax){
+                    layers.push_back(make_shared_ptr(new SoftmaxLayer<T>()));
+                }
                 m_pRuntime=new MLP<T>(make_shared_ptr(new InputLayer<T>()),layers);
                 ASSERT(m_pRuntime,"m_pRuntime");                
             }
@@ -782,6 +784,7 @@ namespace nn {
             vector<shared_ptr<Matrix<T>>> m_weights;
             vector<size_t> m_activationFunctionIds;
             vector<shared_ptr<Vector<T>>> m_biasVectors;
+            const bool m_normalizeOutputWithSoftmax;
     };
 
     template<typename T>
@@ -789,7 +792,7 @@ namespace nn {
         MLPModel<T>* pModel=new MLPModel<T>(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
         return make_shared_ptr(pModel);
     }
-    
+
     //Defines helper function to compare two values.
     template<typename T, typename U>
     bool equals (const T& t1, const U& t2){

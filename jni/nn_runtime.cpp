@@ -19,11 +19,11 @@ mutex modelsLock;
 
 const size_t HANDLE_INVALID=0;
 
-size_t load(const char* modelPath){
+size_t load(const char* modelPath,bool normalizeOutputWithSoftmax){
     ASSERT(modelPath,"modelPath");
     decltype(make_shared_ptr(new TYPE_MLPModel())) pModel=nullptr;
     try{
-        pModel=make_shared_ptr(new TYPE_MLPModel());
+        pModel=make_shared_ptr(new TYPE_MLPModel(normalizeOutputWithSoftmax));
         pModel->load(modelPath);
     }
     catch(...){

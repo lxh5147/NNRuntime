@@ -45,4 +45,5 @@ get_target_property(nn_runtime_test_app nn_runtime_test LOCATION)
 add_test(NAME nn_runtime_test COMMAND ${nn_runtime_test_app} ${nn_runtime_jni_folder}/../core/model.bin)
 
 #jni test
-add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -Djava.library.path=${nn_runtime_jni_folder} -jar ${jar_file} ${nn_runtime_jni_folder}/../core/model.bin)
+#enable assert key words with -ea option
+add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -ea -Djava.library.path=${nn_runtime_jni_folder} -jar ${jar_file} ${nn_runtime_jni_folder}/../core/model.bin)

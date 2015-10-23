@@ -24,9 +24,11 @@ public class test {
         ids.add(2);
         idsInputs.add(ids);
         DoubleVector prediction = nn_runtime.predict(handle,idsInputs);
-        assert(prediction.size()==2);        
-        double t1=Math.tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
-        double t2=Math.tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
+        assert(prediction.size()==2);
+        double oh11=Math.tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
+        double oh12=Math.tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
+        double t1=Math.tanh(oh11*0.2 + oh12*0.3+0.3);
+        double t2=Math.tanh(oh11*0.1 + oh12*0.5+0.4);
         double o1=Math.exp(t1)/(Math.exp(t1)+Math.exp(t2));
         double o2=Math.exp(t2)/(Math.exp(t1)+Math.exp(t2));
         assert(equals(prediction.get(0),o1));
