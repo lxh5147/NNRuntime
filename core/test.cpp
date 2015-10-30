@@ -249,6 +249,15 @@ void MLPModelTest(){
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
     ASSERT(equals(r.data().get()[1],o2), "r");
+
+    //load the model with embedding cached
+    MLPModel<float> modelWithCache;
+    modelWithCache.load(modelFile);
+    //apply the model
+    r=modelWithCache.predict(idsInputs);
+    ASSERT(r.size() == 2, "r");
+    ASSERT(equals(r.data().get()[0],o1), "r");
+    ASSERT(equals(r.data().get()[1],o2), "r");
 }
 
 int main( int argc, const char* argv[] )

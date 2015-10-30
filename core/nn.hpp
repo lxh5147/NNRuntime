@@ -774,7 +774,7 @@ namespace nn {
                     data=make_shared_ptr(buffer);
                     cache.put(md5,data);
                 }else{
-                    is.ignore(size);
+                    is.ignore(size*sizeof(T));
                 }
                 return new Matrix<T>(data,row,col);
             }
@@ -829,7 +829,7 @@ namespace nn {
             static void save(ostream& os,const string& value){
                 size_t size=value.size();
                 save(os,size);
-                os.write(value.c_str(),value.size());
+                os.write(value.c_str(),size);
                 ASSERT(os,"os");
             }
             static void save(ostream& os, const Matrix<T>& matrix){
