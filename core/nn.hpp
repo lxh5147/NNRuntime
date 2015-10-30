@@ -608,32 +608,35 @@ namespace nn {
         return make_shared_ptr(new InputInfo<T>(embedding));
     }
 
-    //Defines global embeddings, which can be shared by multiple models
+    //Calculates md5 of data in memory
     template<typename T>
-    class Embeddings{
+    string md5(T* data,size_t size){
+        ASSERT(data,"data");
+        ASSERT(size>0,"size");
+        return md5::MD5().digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*size);
+    }
+
+    //Defines cache
+    template<typename T>
+    class Cache{
         public:
-            //Data will be copied to the cache if this data is not cached before; otherwise will use the cached data to create a matrix
-            static shared_ptr<Matrix<T>> get(T* data, size_t row, size_t col){
-                static map<string, shared_ptr<T>> embeddingData;
-                static mutex mutexLock;
-                ASSERT(data,"data");
-                ASSERT(row>0,"row");
-                ASSERT(col>0,"col");
-                md5::MD5 md5;
-                string key=md5.digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*row*col);
-                shared_ptr<T> cachedData = nullptr;
-                mutexLock.lock();
-                if(embeddingData.find(key)!=embeddingData.end()){
-                    cachedData=embeddingData[key];
-                }else{
-                    //copy data to the cache
-                    cachedData=make_shared_ptr(new T[row*col]);
-                    memcpy(cachedData.get(),data,sizeof(T)*row*col);
-                    embeddingData[key]=cachedData;
+            shared_ptr<T> get(const string& key){
+                shared_ptr<T> item=nullptr;
+                lock.lock();
+                if(items.find(key)!=items.end()){
+                    item=items[key];
                 }
-                mutexLock.unlock();
-                return make_shared_ptr(new Matrix<T>(cachedData,row,col));
+                lock.unlock();
+                return item;
             }
+            void put(const string& key, const shared_ptr<T>& item){
+                lock.lock();
+                items[key]=item;
+                lock.unlock();
+            }
+        private:
+            map<string, shared_ptr<T>> items;
+            mutex lock;
     };
 
     //Defines MLP model.
@@ -711,17 +714,15 @@ namespace nn {
                 int inputType;
                 size_t contextLength;
                 int poolingId;
-                Matrix<T>* pMatrix=nullptr;
+                Matrix<T>* pEmbedding;
                 for(size_t i=0;i<total;++i){
                     load(is,inputType);
-                    pMatrix=loadMatrix(is);
-                    ASSERT(pMatrix,"pMatrix");
-                    auto embedding=Embeddings<T>::get(pMatrix->data().get(),pMatrix->row(),pMatrix->col());
-                    m_embeddings.push_back(embedding);
-                    delete pMatrix;
+                    pEmbedding=loadEmbedding(is);
+                    ASSERT(pEmbedding,"pEmbedding");
+                    m_embeddings.push_back(make_shared_ptr(pEmbedding));
                     load(is,contextLength);
                     load(is,poolingId);
-                    m_inputsInfo.push_back(newInputInfo(inputType,*embedding,contextLength,poolingId));
+                    m_inputsInfo.push_back(newInputInfo(inputType,*pEmbedding,contextLength,poolingId));
                 }
             }
             void loadHiddenLayers(istream& is){
@@ -744,17 +745,40 @@ namespace nn {
                     m_activationFunctionIds.push_back(activationFunctionId);
                 }
             }
-            Matrix<T>* loadMatrix(istream& is) const{
-                size_t row ;
-                size_t col;
+            static void load(istream& is,size_t& row, size_t& col){
                 load(is,row);
                 load(is,col);
+            }
+            static Matrix<T>* loadMatrix(istream& is){
+                size_t row ;
+                size_t col;
+                load(is,row,col);
                 size_t size=row*col;
                 T* buffer=new T[size];
                 load(is,buffer,size);
                 return new Matrix<T>(shared_ptr<T>(buffer),row,col);
             }
-            Vector<T>* loadVector(istream& is) const{
+            static  Matrix<T>* loadEmbedding(istream& is){
+                //global embedding cache
+                static Cache<T> cache;
+                string md5;
+                load(is,md5);
+                size_t row ;
+                size_t col;
+                load(is,row,col);
+                size_t size=row*col;
+                shared_ptr<T> data=cache.get(md5);
+                if(data==nullptr){
+                    T* buffer=new T[size];
+                    load(is,buffer,size);
+                    data=make_shared_ptr(buffer);
+                    cache.put(md5,data);
+                }else{
+                    is.ignore(size);
+                }
+                return new Matrix<T>(data,row,col);
+            }
+            static Vector<T>* loadVector(istream& is){
                 size_t size;
                 load(is,size);
                 T* buffer=new T[size];
@@ -765,6 +789,12 @@ namespace nn {
             static void load(istream& is, V& value){
                 is.read(reinterpret_cast<char*>(&value),sizeof(V));
             }
+            static void load(istream& is, string& value){
+                size_t size;
+                load(is,size);
+                value.resize(size);
+                is.read(&value[0], size);
+            }
             static void load(istream& is,T* buffer, size_t size){
                 is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
             }
@@ -772,7 +802,7 @@ namespace nn {
                 save(os,m_inputsInfo.size());
                 for(auto& pInputInfo:m_inputsInfo){
                     save(os,pInputInfo->inputType());
-                    save(os,pInputInfo->embedding());
+                    saveEmbedding(os,pInputInfo->embedding());
                     save(os,pInputInfo->contextLength());
                     save(os,pInputInfo->poolingId());
                 }
@@ -786,10 +816,22 @@ namespace nn {
                     save(os,m_activationFunctionIds[i]);
                 }
             }
+            static void saveEmbedding(ostream& os,const Matrix<T>& embedding){
+                //save md5 first
+                save(os,md5(embedding.data().get(),embedding.row()*embedding.col()));
+                save(os,embedding);
+            }
             template<typename V>
-            static void save(ostream& os, const V& value){
+            static void save(ostream& os,const V& value){
                 os.write(reinterpret_cast<const char*>(&value),sizeof(V));
-            }          
+                ASSERT(os,"os");
+            }
+            static void save(ostream& os,const string& value){
+                size_t size=value.size();
+                save(os,size);
+                os.write(value.c_str(),value.size());
+                ASSERT(os,"os");
+            }
             static void save(ostream& os, const Matrix<T>& matrix){
                 size_t row=matrix.row();
                 size_t col=matrix.col();
