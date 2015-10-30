@@ -207,6 +207,14 @@ void writeReadFilleTest(){
     ASSERT(equals(size1,size2),"size1,size2");
 }
 
+void embeddingsTest(){
+    Matrix<float> E1(make_shared_ptr(new float[3*2] {0,0,0.1,0.2,0.3,0.4}),3,2);
+    auto e11=Embeddings<float>::get(E1.data().get(),E1.row(),E1.col());
+    ASSERT(e11->data().get()!=E1.data().get(),"shared embedding data is a copy of the data that initializes the cache");
+    auto e12=Embeddings<float>::get(E1.data().get(),E1.row(),E1.col());
+    ASSERT(e11->data().get()==e12->data().get(),"share embedding data");
+}
+
 void MLPModelTest(){
     //describe model in memory
     vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.4},3,2),newMatrix(new float[3*2]{0,0,0.3,0.8,0.2,0.9},3,2)};
@@ -258,6 +266,7 @@ int main( int argc, const char* argv[] )
     inputLayerTest();
     softmaxLayerTest();
     MLPTest();
+    embeddingsTest();
     MLPModelTest();
     writeReadFilleTest();
 }

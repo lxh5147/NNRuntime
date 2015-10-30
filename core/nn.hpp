@@ -624,7 +624,6 @@ namespace nn {
                 shared_ptr<T> cachedData = nullptr;
                 mutexLock.lock();
                 if(embeddingData.find(key)!=embeddingData.end()){
-                    cout << "in cache" << endl;
                     cachedData=embeddingData[key];
                 }else{
                     //copy data to the cache
