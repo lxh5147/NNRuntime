@@ -14,6 +14,9 @@ This file defines the runtime of a neural network.
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <map>
+#include "md5.h"
+#include <mutex>
 
 namespace nn {
     using namespace std;
@@ -605,6 +608,35 @@ namespace nn {
         return make_shared_ptr(new InputInfo<T>(embedding));
     }
 
+    //Defines global embeddings, which can be shared by multiple models
+    template<typename T>
+    class Embeddings{
+        public:
+            //Data will be copied to the cache if this data is not cached before; otherwise will use the cached data to create a matrix
+            static shared_ptr<Matrix<T>> get(T* data, size_t row, size_t col){
+                static map<string, shared_ptr<T>> embeddingData;
+                static mutex mutexLock;
+                ASSERT(data,"data");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                md5::MD5 md5;
+                string key=md5.digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*row*col);
+                shared_ptr<T> cachedData = nullptr;
+                mutexLock.lock();
+                if(embeddingData.find(key)!=embeddingData.end()){
+                    cout << "in cache" << endl;
+                    cachedData=embeddingData[key];
+                }else{
+                    //copy data to the cache
+                    cachedData=make_shared_ptr(new T[row*col]);
+                    memcpy(cachedData.get(),data,sizeof(T)*row*col);
+                    embeddingData[key]=cachedData;
+                }
+                mutexLock.unlock();
+                return make_shared_ptr(new Matrix<T>(cachedData,row,col));
+            }
+    };
+
     //Defines MLP model.
     template<class T>
     class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
@@ -680,14 +712,17 @@ namespace nn {
                 int inputType;
                 size_t contextLength;
                 int poolingId;
-                Matrix<T>* pMatrix;
+                Matrix<T>* pMatrix=nullptr;
                 for(size_t i=0;i<total;++i){
                     load(is,inputType);
                     pMatrix=loadMatrix(is);
-                    m_embeddings.push_back(make_shared_ptr(pMatrix));
+                    ASSERT(pMatrix,"pMatrix");
+                    auto embedding=Embeddings<T>::get(pMatrix->data().get(),pMatrix->row(),pMatrix->col());
+                    m_embeddings.push_back(embedding);
+                    delete pMatrix;
                     load(is,contextLength);
                     load(is,poolingId);
-                    m_inputsInfo.push_back(newInputInfo(inputType,*pMatrix,contextLength,poolingId));
+                    m_inputsInfo.push_back(newInputInfo(inputType,*embedding,contextLength,poolingId));
                 }
             }
             void loadHiddenLayers(istream& is){
@@ -715,20 +750,24 @@ namespace nn {
                 size_t col;
                 load(is,row);
                 load(is,col);
-                T* buffer=new T[row*col];
-                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*row*col);
+                size_t size=row*col;
+                T* buffer=new T[size];
+                load(is,buffer,size);
                 return new Matrix<T>(shared_ptr<T>(buffer),row,col);
             }
             Vector<T>* loadVector(istream& is) const{
                 size_t size;
                 load(is,size);
                 T* buffer=new T[size];
-                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
+                load(is,buffer,size);
                 return new Vector<T>(shared_ptr<T>(buffer),size);
             }
             template<typename V>
             static void load(istream& is, V& value){
                 is.read(reinterpret_cast<char*>(&value),sizeof(V));
+            }
+            static void load(istream& is,T* buffer, size_t size){
+                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
             }
             void saveInputsInfo(ostream& os) const{
                 save(os,m_inputsInfo.size());
