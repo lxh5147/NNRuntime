@@ -1,5 +1,6 @@
 #include "nn.hpp"
 #include <random>
+
 using namespace std;
 using namespace nn;
 
@@ -320,7 +321,7 @@ void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, siz
     perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
     MLPModel<float> model;
     model.load(modelFile);
-    auto predictionTimes=10000;
+    auto predictionTimes=1000;
     auto sequenceLength=25;
     vector<size_t> wordIdSequence(sequenceLength);
     vector<size_t> otherId(1);
