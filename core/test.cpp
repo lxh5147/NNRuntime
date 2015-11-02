@@ -291,11 +291,8 @@ shared_ptr<Matrix<T>> newMatrix(size_t row, size_t col){
     return make_shared_ptr(new Matrix<T>(make_shared_ptr(new T[row*col]),row,col));
 }
 
-void perfTestWithBigFakedModel(){
-    //one embedding of 1 m words with 50 dimensions
-    auto numberOfWords=1000000;
+void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords, size_t numberOfOther){
     auto dimensionOfWordEmbedding=50;
-    auto numberOfOther=1000;
     auto dimensionOfOtherEmbedding=20;
     auto wordEmbedding=newMatrix<float>(numberOfWords,dimensionOfWordEmbedding);
     generateRandomNumbers(wordEmbedding->data().get(),numberOfWords*dimensionOfWordEmbedding);
@@ -316,11 +313,13 @@ void perfTestWithBigFakedModel(){
     vector<size_t> activationFunctionIds={activationFunctionId,activationFunctionId};
     MLPModel<float> model(inputsInfo,{wordEmbedding,otherEmbedding},weights,biasVectors,activationFunctionIds);
     //save model
-    const char* modelFile="model.faked.bin";
     model.save(modelFile);
-    MLPModel<float> modelLoaded;
-    modelLoaded.load(modelFile);
-    //run prediction for 1000 times, with fixed sequence length
+}
+
+void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, size_t numberOfOther){ 
+    perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
+    MLPModel<float> model;
+    model.load(modelFile);
     auto predictionTimes=10000;
     auto sequenceLength=25;
     vector<size_t> wordIdSequence(sequenceLength);
@@ -328,7 +327,7 @@ void perfTestWithBigFakedModel(){
     for(auto i=0;i<predictionTimes;++i){
         generateRandomNumbers(wordIdSequence,sequenceLength,0,numberOfWords-1);
         generateRandomNumbers(otherId,1,0,numberOfOther-1);
-        modelLoaded.predict({wordIdSequence,otherId});
+        model.predict({wordIdSequence,otherId});
     }
 }
 
@@ -353,7 +352,12 @@ void unitTest(){
 }
 
 void perfTest(){
-    perfTestWithBigFakedModel();
+    //1 million words
+    auto numberOfWords=1000000;
+    auto numberOfOther=1000;
+    string modelFile="model.faked.bin";
+    perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
+    perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
 }
 
 int main( int argc, const char* argv[] )
