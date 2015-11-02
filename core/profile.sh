@@ -13,16 +13,18 @@ genhtml --output-directory coverage \
   --function-coverage --branch-coverage --legend \
   ${prog_to_profile}_coverage.info
 
+perf_test_option=perf
+
 #cpu profile with gprof
 echo "run gprof cpu profiling"
 g++ -std=c++11 -g -pg -o ${prog_to_profile}_gprof test.cpp
-./${prog_to_profile}_gprof
+./${prog_to_profile}_gprof $perf_test_option
 gprof -b ${prog_to_profile}_gprof gmon.out > cpu_analysis.txt 
 
 #memory profile using valgrind
 echo "run massif memory profiling"
 g++ -std=c++11 -g -o ${prog_to_profile}_massif test.cpp 
 rm massif.out.*
-valgrind --tool=massif  ./${prog_to_profile}_massif
+valgrind --tool=massif  ./${prog_to_profile}_massif $perf_test_option
 ms_print massif.out.* > memory_analysis.txt 
 

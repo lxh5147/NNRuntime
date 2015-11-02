@@ -1,5 +1,5 @@
 #include "nn.hpp"
-
+#include <random>
 using namespace std;
 using namespace nn;
 
@@ -223,7 +223,7 @@ void MLPModelTest(){
     //two hidden layers
     auto weights={newMatrix(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}, 2,8),newMatrix(new float[2*2] {0.2,0.3,0.1,0.5}, 2,2)};
     auto biasVectors={newVector(new float[2]{0.1,0.2},2),newVector(new float[2]{0.3,0.4},2)};
-    vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH};
+    vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH,ActivationFunctions<float>::TANH};
     MLPModel<float> model(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
     //predict
     vector<vector<size_t>> idsInputs ={{0,2},{2}};
@@ -260,8 +260,79 @@ void MLPModelTest(){
     ASSERT(equals(r.data().get()[1],o2), "r");
 }
 
-int main( int argc, const char* argv[] )
-{
+template<typename T>
+void generateRandomNumbers(T* buffer, size_t size, T min=0, T max=1000){
+    random_device rd;
+    mt19937 mt(rd());
+    uniform_real_distribution<T> dist(min,max);
+    for(size_t i=0;i<size;++i){
+        buffer[i]=dist(mt);
+    }
+}
+
+void generateRandomNumbers(vector<size_t>& buffer, size_t size, size_t min, size_t max){
+    random_device rd;
+    mt19937 mt(rd());
+    uniform_int_distribution<size_t> dist(min,max);
+    for(size_t i=0;i<size;++i){
+        buffer[i]=dist(mt);
+    }
+}
+
+//Defines helper function to create shared pointer of vector without using external data buffer.
+template<typename T>
+shared_ptr<Vector<T>> newVector(size_t size){
+    return make_shared_ptr(new Vector<T>( make_shared_ptr(new T[size]),size));
+}
+
+//Defines helper function to create shared pointer of matrix, without using external data buffer.
+template<typename T>
+shared_ptr<Matrix<T>> newMatrix(size_t row, size_t col){
+    return make_shared_ptr(new Matrix<T>(make_shared_ptr(new T[row*col]),row,col));
+}
+
+void perfTestWithBigFakedModel(){
+    //one embedding of 1 m words with 50 dimensions
+    auto numberOfWords=1000000;
+    auto dimensionOfWordEmbedding=50;
+    auto numberOfOther=1000;
+    auto dimensionOfOtherEmbedding=20;
+    auto wordEmbedding=newMatrix<float>(numberOfWords,dimensionOfWordEmbedding);
+    generateRandomNumbers(wordEmbedding->data().get(),numberOfWords*dimensionOfWordEmbedding);
+    auto otherEmbedding=newMatrix<float>(numberOfOther,dimensionOfOtherEmbedding);
+    generateRandomNumbers(otherEmbedding->data().get(),numberOfOther*dimensionOfOtherEmbedding);
+    auto contextLength=1;
+    auto inputsInfo={newInputInfo(*wordEmbedding,contextLength,Poolings<Vector<float>>::AVG),newInputInfo(*otherEmbedding)};
+    //two hidden layers
+    auto hiddenLayer0NumberOfOutputNodes=60;
+    auto hiddenLayer1NumberOfOutputNodes=18;
+    vector<shared_ptr<Matrix<float>>> weights={newMatrix<float>(hiddenLayer0NumberOfOutputNodes,(2*contextLength+1)*dimensionOfWordEmbedding+dimensionOfOtherEmbedding),newMatrix<float>(hiddenLayer1NumberOfOutputNodes,hiddenLayer0NumberOfOutputNodes)};
+    vector<shared_ptr<Vector<float>>> biasVectors={newVector<float>(hiddenLayer0NumberOfOutputNodes),newVector<float>(hiddenLayer1NumberOfOutputNodes)};
+    generateRandomNumbers(weights[0]->data().get(),hiddenLayer0NumberOfOutputNodes*((2*contextLength+1)*dimensionOfWordEmbedding+dimensionOfOtherEmbedding));
+    generateRandomNumbers(weights[1]->data().get(),hiddenLayer1NumberOfOutputNodes*hiddenLayer0NumberOfOutputNodes);
+    generateRandomNumbers(biasVectors[0]->data().get(),hiddenLayer0NumberOfOutputNodes);
+    generateRandomNumbers(biasVectors[1]->data().get(),hiddenLayer1NumberOfOutputNodes);
+    size_t activationFunctionId=ActivationFunctions<float>::RELU;
+    vector<size_t> activationFunctionIds={activationFunctionId,activationFunctionId};
+    MLPModel<float> model(inputsInfo,{wordEmbedding,otherEmbedding},weights,biasVectors,activationFunctionIds);
+    //save model
+    const char* modelFile="model.faked.bin";
+    model.save(modelFile);
+    MLPModel<float> modelLoaded;
+    modelLoaded.load(modelFile);
+    //run prediction for 1000 times, with fixed sequence length
+    auto predictionTimes=10000;
+    auto sequenceLength=25;
+    vector<size_t> wordIdSequence(sequenceLength);
+    vector<size_t> otherId(1);
+    for(auto i=0;i<predictionTimes;++i){
+        generateRandomNumbers(wordIdSequence,sequenceLength,0,numberOfWords-1);
+        generateRandomNumbers(otherId,1,0,numberOfOther-1);
+        modelLoaded.predict({wordIdSequence,otherId});
+    }
+}
+
+void unitTest(){
     vectorPlusTest();
     vectorDivideTest();
     vectorMaxTest();
@@ -279,4 +350,26 @@ int main( int argc, const char* argv[] )
     cacheTest();
     MLPModelTest();
     writeReadFilleTest();
+}
+
+void perfTest(){
+    perfTestWithBigFakedModel();
+}
+
+int main( int argc, const char* argv[] )
+{
+    string option;
+    if(argc==2){
+        option=argv[1];
+    }
+    if(option=="perf"){
+        perfTest();
+    }
+    else if(option=="all"){
+        unitTest();
+        perfTest();
+    } else{
+        //default: do unit test
+        unitTest();
+    }
 }

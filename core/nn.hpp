@@ -669,6 +669,8 @@ namespace nn {
         public:
             MLPModel(bool normalizeOutputWithSoftmax=true):m_pRuntime(nullptr),m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){}
             MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo,const vector<shared_ptr<Matrix<T>>>& embeddings,const vector<shared_ptr<Matrix<T>>>& weights,const vector<shared_ptr<Vector<T>>>& biasVectors,const vector<size_t> activationFunctionIds,bool normalizeOutputWithSoftmax=true):m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){
+                ASSERT(weights.size()==biasVectors.size(),"layer");
+                ASSERT(weights.size()==activationFunctionIds.size(),"layer");
                 append(m_inputsInfo, inputsInfo);
                 append(m_embeddings,embeddings);
                 append(m_weights,weights);
