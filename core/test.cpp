@@ -2,6 +2,7 @@
 #include <random>
 
 using namespace std;
+using namespace common;
 using namespace nn;
 
 void vectorPlusTest(){

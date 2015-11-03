@@ -15,20 +15,13 @@ This file defines the runtime of a neural network.
 #include <cstring>
 #include <string>
 #include <map>
-#include "md5.hpp"
 #include <mutex>
+#include "md5.hpp"
+#include "common.hpp"
 
 namespace nn {
     using namespace std;
-    //Defines an macro that logs error message and stops the current program if some condition does not hold.
-    #define ASSERT(condition, message) \
-        do { \
-            if (! (condition)) { \
-                std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
-                          << " line " << __LINE__ << ": " << message << std::endl; \
-                exit(EXIT_FAILURE); \
-            } \
-        } while (false)
+    using namespace common;
 
     //Defines a vector. A vector consists of an array of elements and their size.
     template <class T>
@@ -49,7 +42,7 @@ namespace nn {
                 T* elements=m_data.get();
                 for(size_t i=0;i<m_size;++i){
                     elements[i]/=denominator;
-                }                
+                }
             }
             //Performs element-wise max. This vector is updated to hold the updated results.
             void max(const Vector<T>& vector){
@@ -104,13 +97,6 @@ namespace nn {
             size_t m_size;
     };
 
-    //Defines a helper function to create shared pointer by leveraging the type inference capability of templated static function.
-    template<typename T>
-    shared_ptr<T> make_shared_ptr(T* p){
-        ASSERT(p,"p");
-        return shared_ptr<T>(p);
-    }
-
     //Defines helper function to create shared pointer of vector.
     template<typename T>
     shared_ptr<Vector<T>> newVector(T* data, size_t size){
@@ -157,7 +143,7 @@ namespace nn {
             const size_t m_col;
     };
 
-    //Defines helper function to create shared pointer of matrix. 
+    //Defines helper function to create shared pointer of matrix.
     template<typename T>
     shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
         ASSERT(data,"data");
@@ -192,14 +178,6 @@ namespace nn {
             const Matrix<T>& m_weights;
             const Vector<T>& m_bias;
             const function<T(const T&)>& m_activationFunc;
-    };
-
-    //Defines iterator interface.        
-    template<class T>
-    class Iterator{
-        public:
-            //If next element is available, it will return true and load next element into buffer; otherwise return false.
-            virtual bool next(T&)=0;
     };
 
     //Defines pooling interface.
@@ -619,31 +597,6 @@ namespace nn {
         return md5::MD5().digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*size);
     }
 
-    //Defines cache
-    template<typename T>
-    class Cache{
-        public:
-            //Gets cached item with its key.
-            shared_ptr<T> get(const string& key) {
-                shared_ptr<T> item=nullptr;
-                lock.lock();
-                if(items.find(key)!=items.end()){
-                    item=items[key];
-                }
-                lock.unlock();
-                return item;
-            }
-            //Puts an item to this cache.
-            void put(const string& key, const shared_ptr<T>& item){
-                lock.lock();
-                items[key]=item;
-                lock.unlock();
-            }
-        private:
-            map<string, shared_ptr<T>> items;
-            mutex lock;
-    };
-
     //Defines MLP model.
     template<class T>
     class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
@@ -878,12 +831,6 @@ namespace nn {
     shared_ptr<MLPModel<T>> newMLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& embeddings, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
         MLPModel<T>* pModel=new MLPModel<T>(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
         return make_shared_ptr(pModel);
-    }
-
-    //Defines helper function to compare two values.
-    template<typename T, typename U>
-    bool equals (const T& t1, const U& t2){
-        return abs(t1-t2) <= 0.000001;
     }
 }
 
