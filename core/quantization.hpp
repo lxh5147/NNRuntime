@@ -17,6 +17,8 @@ namespace quantization{
         public:
             virtual Q quantize(T t) const=0;
             virtual T unquantize(Q q) const=0;
+        public:
+            virtual ~Quantizer(){}
     };
 
     template<typename T>
@@ -114,7 +116,7 @@ namespace quantization{
         ASSERT(false,"un supported max value");
         return -1;
     }
-    
+
     template<>
     constexpr unsigned char MaxValue(){
         return 255;
