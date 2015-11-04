@@ -18,10 +18,12 @@ This file defines the runtime of a neural network.
 #include <mutex>
 #include "md5.hpp"
 #include "common.hpp"
+#include "quantization.hpp"
 
 namespace nn {
     using namespace std;
     using namespace common;
+    using namespace quantization;
 
     //Defines a vector. A vector consists of an array of elements and their size.
     template <class T>
@@ -91,7 +93,7 @@ namespace nn {
                 second.m_size += first.m_size;
             }
         public:
-            Vector(const shared_ptr<T>& data, const size_t size): m_data(data),m_size(size){}
+            Vector(shared_ptr<T> data, size_t size): m_data(data),m_size(size){}
         private:
             shared_ptr<T> m_data;
             size_t m_size;
@@ -136,7 +138,7 @@ namespace nn {
                 return m_data;
             }
         public:
-            Matrix(const shared_ptr<T>& data, const size_t row, const size_t col): m_data(data), m_row(row), m_col(col) {}
+            Matrix(shared_ptr<T> data, size_t row, size_t col): m_data(data), m_row(row), m_col(col) {}
         private:
             const shared_ptr<T> m_data;
             const size_t m_row;
@@ -156,6 +158,8 @@ namespace nn {
         public:
             //Calculates output. 
             virtual Vector<T> calc(const I& input) const = 0;
+        public:
+            virtual ~Layer(){}
     };
 
     //Defines a fully connected hidden layer.
@@ -175,9 +179,10 @@ namespace nn {
                 return output;
             }
         private:
-            const Matrix<T>& m_weights;
-            const Vector<T>& m_bias;
-            const function<T(const T&)>& m_activationFunc;
+            //hold a copy of weights and bias vector
+            const Matrix<T> m_weights;
+            const Vector<T> m_bias;
+            const function<T(const T&)> m_activationFunc;
     };
 
     //Defines pooling interface.
@@ -188,16 +193,132 @@ namespace nn {
             virtual const void calc(T&, Iterator<T>&, T&) const=0;
     };
 
+    //Defines embedding interface.
+    template<class T>
+    class Embedding{
+        public:
+            //Fills the embedding vector into the buffer which should be prepared by the caller.
+            virtual void get(size_t, T*) const=0;
+            //Returns the raw embedding values if applicable.
+            virtual shared_ptr<T> get() const {
+                return nullptr;
+            }
+            //Returns the dimension of embedding vector.
+            size_t dimension() const{
+                return m_dimension;
+            }
+            //Returns the number of embedding vectors.
+            size_t count() const{
+                return m_count;
+            }
+        public:
+            virtual ~Embedding(){}
+        protected:
+            Embedding(size_t count, size_t dimension):m_count(count), m_dimension(dimension){}
+        protected:
+            const size_t m_count;
+            const size_t m_dimension;
+    };
+
+    //Defines embedding based on raw values (no quantization).
+    template<class T>
+    class EmbeddingWithRawValues: public Embedding<T>{
+        public:
+            void get(size_t id,T* buffer) const {
+                ASSERT(buffer,"buffer");
+                ASSERT(id>=0&&id<Embedding<T>::m_count,"id");
+                memcpy(buffer,m_data.get()+id*Embedding<T>::m_dimension,sizeof(T)*Embedding<T>::m_dimension);
+            }
+            shared_ptr<T> get() const {
+                return m_data;
+            }
+        public:
+            static shared_ptr<Embedding<T>> create(const Matrix<T>& embedding){
+                return make_shared_ptr(new EmbeddingWithRawValues<T>(embedding));
+            }
+        private:
+            EmbeddingWithRawValues(const Matrix<T>& embedding):Embedding<T>(embedding.row(),embedding.col()),m_data(embedding.data()){}
+        private:
+            const shared_ptr<T> m_data;
+    };
+
+    //Defines embedding based on quantized values.
+    template<class T,class Q>
+    class EmbeddingWithQuantizedValues: public Embedding<T>{
+        public:
+            void get(size_t id,T* buffer) const {
+                ASSERT(buffer,"buffer");
+                ASSERT(id>=0&&id<Embedding<T>::m_count,"id");
+                Q* quantized=m_data.get() + (id*Embedding<T>::m_dimension);
+                for(size_t i=0;i<Embedding<T>::m_dimension;++i){
+                    buffer[i]=m_quantizer->unquantize(quantized[i]);
+                }
+            }
+        public:
+            static shared_ptr<Embedding<T>> create(const Matrix<T>& embedding){
+                auto quantizer=createQuantizer(embedding);
+                auto count=embedding.row();
+                auto dimension=embedding.col();
+                auto size=count*dimension;
+                auto quantizedEmbedding=make_shared_ptr(new Q[size]);
+                auto rawData=embedding.data().get();
+                auto quantizedData=quantizedEmbedding.get();
+                for(size_t i=0;i<size;++i){
+                    quantizedData[i]=quantizer->quantize(rawData[i]);
+                }
+                return make_shared_ptr(new EmbeddingWithQuantizedValues<T,Q>(quantizedEmbedding,count,dimension,quantizer));
+            }
+        private:
+            class ValueIterator:public Iterator<T>{
+                public:
+                    virtual bool next(T& buffer) {
+                        if(m_pos>=m_size){
+                            return false;
+                        }
+                        buffer=m_values.get()[m_pos];
+                        ++m_pos;
+                        return true;
+                    }
+                    void reset(){
+                        m_pos=0;
+                    }
+                public:
+                    ValueIterator(shared_ptr<T> values,size_t size):m_values(values),m_size(size),m_pos(0){}
+                private:
+                    const shared_ptr<T> m_values;
+                    const size_t m_size;
+                    size_t m_pos;
+            };
+            static shared_ptr<Quantizer<T,Q>> createQuantizer(const Matrix<T>& embedding){
+                auto size=embedding.row()*embedding.col();
+                //use linear quantization
+                T min,max;
+                ValueIterator it(embedding.data(),size);
+                calcMinMax(it,min,max);
+                it.reset();
+                return LinearQuantizer<T,Q>::create(it,MaxValue<Q>(),min,max);
+            }
+        private:
+            EmbeddingWithQuantizedValues(shared_ptr<Q> embedding,size_t count, size_t dimension, shared_ptr<Quantizer<T,Q>> quantizer):Embedding<T>(count,dimension),m_data(embedding),m_quantizer(quantizer) {}
+        private:
+            const shared_ptr<Q> m_data;
+            //Use a pointer so that it can use any type of quantizers
+            const shared_ptr<Quantizer<T,Q>> m_quantizer;
+    };
+
     //Defines input for neural network.
     template<class T>
     class Input {
         public:
             virtual Vector<T> get() const =0;
             virtual size_t  size() const =0;
+        public:
+            virtual ~Input(){}
         protected:
-            Input(const Matrix<T>& embedding): m_embedding(embedding){}
+            Input(shared_ptr<Embedding<T>> embedding): m_embedding(embedding){}
         protected:
-            const Matrix<T>& m_embedding;
+            //Pointer to any type of embedding
+            const shared_ptr<Embedding<T>> m_embedding;
     };
 
     //Id of the symbol for padding
@@ -212,7 +333,7 @@ namespace nn {
             enum:int{AVG=0, SUM=1, MAX=2};
             //Gets the pre-defined pooling strategy.
             static const Pooling<T>& get(int id){
-                ASSERT(id==AVG||id==SUM||id==MAX,"id");                
+                ASSERT(id==AVG||id==SUM||id==MAX,"id");
                 if(id==AVG){
                     return avg();
                 }
@@ -304,35 +425,36 @@ namespace nn {
             }
             //Returns the dimension of the input vector associated with this sequence input.
             virtual size_t  size() const {
-                return  Input<T>::m_embedding.col() * (2*m_contextLength + 1 );
+                return  Input<T>::m_embedding->dimension() * (2*m_contextLength + 1 );
             }
         public:
-            SequenceInput(const vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding, const Pooling<Vector<T>>& pooling):
+            SequenceInput(const vector<size_t>& idSequence, size_t contextLength, shared_ptr<Embedding<T>> embedding, const Pooling<Vector<T>>& pooling):
                 Input<T>(embedding), m_idSequence(idSequence), m_contextLength(contextLength),m_pooling(pooling){
                 ASSERT(m_idSequence.size()>0,"idSequence");
                 for(auto &id:idSequence){
-                    ASSERT(id < embedding.row(),"id");
+                    ASSERT(id<embedding->count(),"id");
                 }
             }
         private:
             //Generates concatenated vector for the window with pos in the middle.
-            void generateConcatenatedVector(Vector<T>& concatenationBuffer, size_t pos) const {
-                T* embeddingBuffer=Input<T>::m_embedding.data().get();
+            void generateConcatenatedVector(Vector<T>& concatenationBuffer, size_t pos) const{
+                auto embedding=Input<T>::m_embedding;
+                size_t dimension=embedding->dimension();
                 T* buffer=concatenationBuffer.data().get();
-                size_t col=Input<T>::m_embedding.col();
                 size_t size=m_idSequence.size();
                 //note: size_t is unsigned int
                 int start=(int)pos-(int)m_contextLength;
                 int end=pos+m_contextLength;
                 for(int i=start;i<=end;++i) {
                     size_t id=i>=0 && (size_t)i < size ? m_idSequence[i]:PADDING_ID;
-                    memcpy(buffer, embeddingBuffer+id*col, sizeof(T)*col);
-                    buffer+= col;
+                    embedding->get(id,buffer);
+                    buffer+=dimension;
                 }
             }
         private:
             const vector<size_t> m_idSequence;
             const size_t m_contextLength;
+            //pointer to a global pooling object.
             const Pooling<Vector<T>>& m_pooling;
         private:
             //Defines input vector iterator. Each input vector is a concatenated vector for a window.
@@ -360,24 +482,25 @@ namespace nn {
     class NonSequenceInput: public Input<T> {
         public:
             virtual Vector<T> get() const {
-                size_t size=Input<T>::m_embedding.col();
-                T* buffer=new T[size];              
-                T* embedding=Input<T>::m_embedding.data().get();
-                memcpy(buffer, embedding+m_id*size, sizeof(T)*size);
+                auto embedding=Input<T>::m_embedding;
+                size_t size=embedding->dimension();
+                T* buffer=new T[size];
+                embedding->get(m_id,buffer);
                 return Vector<T> ( shared_ptr<T>(buffer),size);
             }
-            virtual size_t  size() const {
-                return  Input<T>::m_embedding.col();
+            virtual size_t size() const {
+                return  Input<T>::m_embedding->dimension();
             }
         public:
-            NonSequenceInput(const size_t id, const Matrix<T>& embedding):Input<T>(embedding), m_id(id){
-                ASSERT(id < embedding.row(),"id");
+            NonSequenceInput(size_t id, shared_ptr<Embedding<T>> embedding):Input<T>(embedding), m_id(id){
+                ASSERT(id<embedding->count(),"id");
             }
         private:
-            size_t m_id;
+            const size_t m_id;
     };
 
     //Defins the input layer of neural network, which consists of a set of sequence/non-sequence inputs.
+    //Use reference wrapper to indicate the the input should always exist.
     template<class T>
     class InputLayer: public Layer<T, vector<reference_wrapper<Input<T>>>>{
         public:
@@ -452,8 +575,8 @@ namespace nn {
         public:
             MLP(const shared_ptr<InputLayer<T>>& inputLayer,const vector<shared_ptr<Layer<T,Vector<T>>>>& layers):m_inputLayer(inputLayer),m_layers(layers){}
         private:
-            shared_ptr<InputLayer<T>> m_inputLayer;
-            vector<shared_ptr<Layer<T, Vector<T>>>> m_layers;
+            const shared_ptr<InputLayer<T>> m_inputLayer;
+            const vector<shared_ptr<Layer<T, Vector<T>>>> m_layers;
     };
 
     //Defines common activation functions.
@@ -497,14 +620,10 @@ namespace nn {
             }
     }; 
 
-    //Defines NN runtime factory interface. There is 1:1 mapping between NN runtime and its factory.
-    template <class T, class I>
+    //Defines NN model interface. It can be considered as extension of the nn runtime, which accepts a list of id sequences as input.
+    template <class T>
     class NNModel {
         public:
-            //Loads model from a binary file.
-            virtual void load(const string& modelPath)=0;
-            //Saves this model to a binary file.
-            virtual void save(const string& modelPath) const=0;
             //Predicts with ids as inputs.
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const=0;
         public:
@@ -513,13 +632,13 @@ namespace nn {
 
     //Defines a helper function to create a shared pointer of sequence input.
     template<typename T>
-    shared_ptr<Input<T>> newInput(const vector<size_t>& idSequence, const size_t contextLength, const Matrix<T>& embedding, const int poolingId){
+    shared_ptr<Input<T>> newInput(const vector<size_t>& idSequence, size_t contextLength, shared_ptr<Embedding<T>> embedding, int poolingId){
         return make_shared_ptr(new SequenceInput<T>(idSequence,contextLength,embedding,Poolings<Vector<T>>::get(poolingId)));
     }
 
     //Defines a helper function to create a shared pointer of non-sequence input.
     template<typename T>
-    shared_ptr<Input<T>> newInput(const size_t id, const Matrix<T>& embedding){
+    shared_ptr<Input<T>> newInput(size_t id, shared_ptr<Embedding<T>> embedding){
         return make_shared_ptr(new NonSequenceInput<T>(id,embedding));
     }
 
@@ -530,7 +649,7 @@ namespace nn {
             enum:int{SEQUENCE_INPUT=0, NON_SEQUENCE_INPUT=1};
         public:
             //Returns input vector corresponding to the input id sequence.
-            shared_ptr<Input<T>> getInput(const vector<size_t>& ids) const{
+            shared_ptr<Input<T>> getInput(const vector<size_t>& ids) const {
                 ASSERT(ids.size()>=1,"ids");
                 ASSERT(ids.size()==1||m_inputType==SEQUENCE_INPUT,"ids");
                 if(m_inputType==SEQUENCE_INPUT){
@@ -541,21 +660,17 @@ namespace nn {
                 }
             }
         public:
-            InputInfo(int inputType, const Matrix<T>& embedding, size_t contextLength, int poolingId):m_inputType(inputType),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
+            InputInfo(int inputType, shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId):m_inputType(inputType),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
                 ASSERT(inputType==SEQUENCE_INPUT||inputType==NON_SEQUENCE_INPUT,"inputType");
-                ASSERT(embedding.row()>=2,"embedding");
+                ASSERT(embedding!=nullptr && embedding->count()>=2,"embedding");
             }
-            InputInfo(const Matrix<T>& embedding, size_t contextLength, int poolingId):m_inputType(SEQUENCE_INPUT),m_embedding(embedding),m_contextLength(contextLength),m_poolingId(poolingId){
-                ASSERT(embedding.row()>=2,"embedding");
-            }
-            InputInfo(const Matrix<T>& embedding):m_inputType(NON_SEQUENCE_INPUT),m_embedding(embedding),m_contextLength(0),m_poolingId(-1){
-                ASSERT(embedding.row()>=2,"embedding");
-            }
+            InputInfo(shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId):InputInfo<T>(SEQUENCE_INPUT,embedding,contextLength,poolingId){}
+            InputInfo(shared_ptr<Embedding<T>> embedding):InputInfo<T>(NON_SEQUENCE_INPUT,embedding,0,-1){}
         public:
             const int inputType() const {
                 return m_inputType;
             }
-            const Matrix<T>& embedding() const {
+            const shared_ptr<Embedding<T>> embedding() const {
                 return m_embedding;
             }
             const size_t contextLength() const {
@@ -566,40 +681,32 @@ namespace nn {
             }
         private:
             const int m_inputType;
-            const Matrix<T>& m_embedding;
+            const shared_ptr<Embedding<T>> m_embedding;
             const size_t m_contextLength;
             const int m_poolingId;
     };
 
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
-    shared_ptr<InputInfo<T>> newInputInfo(int inputType, const Matrix<T>& embedding, size_t contextLength, int poolingId){
+    shared_ptr<InputInfo<T>> newInputInfo(int inputType, shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId){
         return make_shared_ptr(new InputInfo<T>(inputType,embedding,contextLength,poolingId));
     }
 
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
-    shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding, size_t contextLength, int poolingId){
+    shared_ptr<InputInfo<T>> newInputInfo(shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId){
         return make_shared_ptr(new InputInfo<T>(embedding,contextLength,poolingId));
     }
 
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
-    shared_ptr<InputInfo<T>> newInputInfo(const Matrix<T>& embedding){
+    shared_ptr<InputInfo<T>> newInputInfo(shared_ptr<Embedding<T>> embedding){
         return make_shared_ptr(new InputInfo<T>(embedding));
-    }
-
-    //Calculates md5 of data in memory
-    template<typename T>
-    string md5(T* data,size_t size){
-        ASSERT(data,"data");
-        ASSERT(size>0,"size");
-        return md5::MD5().digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*size);
     }
 
     //Defines MLP model.
     template<class T>
-    class MLPModel: public NNModel<T,vector<reference_wrapper<Input<T>>>>{
+    class MLPModel: public NNModel<T>{
         public:
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const {
                 vector<shared_ptr<Input<T>>> pInputs=createInputs(idsInputs);
@@ -609,171 +716,93 @@ namespace nn {
                 }
                 return m_pRuntime->calc(inputs);
             }
-            virtual void load(const string& modelPath){               
-                ifstream is(modelPath,ios::binary);
-                ASSERT(is.is_open(),"is");
-                cleanIfNeeded();
-                loadInputsInfo(is);
-                loadHiddenLayers(is);
-                is.close();
-                initRuntime();
-            }
-            virtual void save(const string& modelPath) const{
-                ofstream os(modelPath, ios::binary);
-                ASSERT(os.is_open(),"os");
-                saveInputsInfo(os);
-                saveHiddenLayers(os);
-            }
         public:
-            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& embeddings, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds, bool normalizeOutputWithSoftmax=true):m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){
+            MLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds, bool normalizeOutputWithSoftmax=true):m_inputsInfo(inputsInfo){
                 ASSERT(weights.size()==biasVectors.size(),"layer");
                 ASSERT(weights.size()==activationFunctionIds.size(),"layer");
-                append(m_inputsInfo, inputsInfo);
-                append(m_embeddings,embeddings);
-                append(m_weights,weights);
-                append(m_biasVectors,biasVectors);
-                append(m_activationFunctionIds,activationFunctionIds);
-                initRuntime();
+                m_pRuntime=createRuntime(weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax);
             }
-            MLPModel(bool normalizeOutputWithSoftmax=true):m_pRuntime(nullptr),m_normalizeOutputWithSoftmax(normalizeOutputWithSoftmax){}
-            ~MLPModel(){
-                cleanIfNeeded();
-            }
-        private:        
-            void initRuntime(){
+
+        private:
+            static shared_ptr<NN<T,vector<reference_wrapper<Input<T>>>>> createRuntime(const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t>& activationFunctionIds, bool normalizeOutputWithSoftmax){
                 vector<shared_ptr<Layer<T, Vector<T>>>> layers;
-                size_t total=m_weights.size();
+                size_t total=weights.size();
                 for(size_t i=0;i<total;++i){
-                    layers.push_back(make_shared_ptr(new HiddenLayer<T>(*m_weights[i],*m_biasVectors[i],ActivationFunctions<T>::get(m_activationFunctionIds[i]))));
+                    //Hidden layer holders a copy of connection weights and bias vectors.
+                    layers.push_back(make_shared_ptr(new HiddenLayer<T>(*weights[i],*biasVectors[i],ActivationFunctions<T>::get(activationFunctionIds[i]))));
                 }
-                if(m_normalizeOutputWithSoftmax){
+                if(normalizeOutputWithSoftmax){
                     layers.push_back(make_shared_ptr(new SoftmaxLayer<T>()));
                 }
-                m_pRuntime=new MLP<T>(make_shared_ptr(new InputLayer<T>()),layers);
-                ASSERT(m_pRuntime,"m_pRuntime");
+                return make_shared_ptr(new MLP<T>(make_shared_ptr(new InputLayer<T>()),layers));
             }
-            void cleanIfNeeded(){
-                 if(m_pRuntime==nullptr){
-                    return;
-                 }
-                delete m_pRuntime;
-                m_pRuntime=nullptr;
-                m_inputsInfo.clear();
-                m_embeddings.clear();
-                m_weights.clear();
-                m_biasVectors.clear();
-                m_activationFunctionIds.clear();
-            }
-            template<typename V>
-            static void append(vector<V>& target, const vector<V>& source){
-                target.insert(target.end(),source.begin(),source.end());
-            }
-            void loadInputsInfo(istream& is){
-                size_t total=0;
-                load(is,total);
-                int inputType;
-                size_t contextLength;
-                int poolingId;
-                Matrix<T>* pEmbedding;
-                for(size_t i=0;i<total;++i){
-                    load(is,inputType);
-                    pEmbedding=loadEmbedding(is);
-                    ASSERT(pEmbedding,"pEmbedding");
-                    m_embeddings.push_back(make_shared_ptr(pEmbedding));
-                    load(is,contextLength);
-                    load(is,poolingId);
-                    m_inputsInfo.push_back(newInputInfo(inputType,*pEmbedding,contextLength,poolingId));
+            //Creates inputs for the runtime
+            vector<shared_ptr<Input<T>>> createInputs(const vector<vector<size_t>>& idsInputs) const{
+                ASSERT(idsInputs.size()==m_inputsInfo.size(),"idsInputs");
+                vector<shared_ptr<Input<T>>> inputs;
+                for(size_t i=0;i<idsInputs.size();++i){
+                    inputs.push_back(m_inputsInfo[i]->getInput(idsInputs[i]));
                 }
+                return inputs;
             }
-            void loadHiddenLayers(istream& is){
-                size_t total=0;
-                load(is,total);
-                Matrix<T>* pPreMatrix=nullptr;
-                size_t activationFunctionId;
-                Matrix<T>* pMatrix;
-                Vector<T>* pBias;
-                for(size_t i=0;i<total;++i){
-                    pMatrix=loadMatrix(is);
-                    if(pPreMatrix!=nullptr){
-                        ASSERT(pPreMatrix->row()==pMatrix->col(),"input vector size");
-                    }
-                    pPreMatrix=pMatrix;
-                    pBias=loadVector(is);
-                    load(is,activationFunctionId);
-                    m_weights.push_back(make_shared_ptr(pMatrix));
-                    m_biasVectors.push_back(make_shared_ptr(pBias));
-                    m_activationFunctionIds.push_back(activationFunctionId);
-                }
+        private:
+            shared_ptr<NN<T,vector<reference_wrapper<Input<T>>>>> m_pRuntime;
+            const vector<shared_ptr<InputInfo<T>>> m_inputsInfo;
+    };
+
+    //Calculates md5 of data in memory
+    template<typename T>
+    string md5(T* data,size_t size){
+        ASSERT(data,"data");
+        ASSERT(size>0,"size");
+        return md5::MD5().digestMemory(reinterpret_cast<md5::BYTE*>(data), sizeof(T)*size);
+    }
+
+    template<class T> using EmbeddingWith16BitsQuantizedValues = EmbeddingWithQuantizedValues<T,unsigned short>;
+
+    //Defines MLP model factory.
+    template<class T>
+    class MLPModelFactory {
+        public:
+            static void save(const string& modelPath, const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
+                ofstream os(modelPath, ios::binary);
+                ASSERT(os.is_open(),"os");
+                saveInputsInfo(os,inputsInfo);
+                saveHiddenLayers(os,weights,biasVectors,activationFunctionIds);
             }
-            static void load(istream& is,size_t& row, size_t& col){
-                load(is,row);
-                load(is,col);
+            static shared_ptr<MLPModel<T>> load(const string& modelPath,bool quantizeEmbedding=false, bool normalizeOutputWithSoftmax=true){
+                vector<shared_ptr<InputInfo<T>>> inputsInfo;
+                vector<shared_ptr<Matrix<T>>> weights;
+                vector<shared_ptr<Vector<T>>> biasVectors;
+                vector<size_t> activationFunctionIds;
+                ifstream is(modelPath,ios::binary);
+                ASSERT(is.is_open(),"is");
+                loadInputsInfo(is,inputsInfo,quantizeEmbedding);
+                loadHiddenLayers(is,weights,biasVectors,activationFunctionIds);
+                is.close();
+                return make_shared_ptr(new MLPModel<T>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax));
             }
-            static Matrix<T>* loadMatrix(istream& is){
-                size_t row ;
-                size_t col;
-                load(is,row,col);
-                size_t size=row*col;
-                T* buffer=new T[size];
-                load(is,buffer,size);
-                return new Matrix<T>(shared_ptr<T>(buffer),row,col);
-            }
-            static  Matrix<T>* loadEmbedding(istream& is){
-                //singleton global embedding cache implemented by a local static variable
-                static Cache<T> cache;
-                string md5;
-                load(is,md5);
-                size_t row ;
-                size_t col;
-                load(is,row,col);
-                size_t size=row*col;
-                shared_ptr<T> data=cache.get(md5);
-                if(data==nullptr){
-                    T* buffer=new T[size];
-                    load(is,buffer,size);
-                    data=make_shared_ptr(buffer);
-                    cache.put(md5,data);
-                }else{
-                    is.ignore(size*sizeof(T));
-                }
-                return new Matrix<T>(data,row,col);
-            }
-            static Vector<T>* loadVector(istream& is){
-                size_t size;
-                load(is,size);
-                T* buffer=new T[size];
-                load(is,buffer,size);
-                return new Vector<T>(shared_ptr<T>(buffer),size);
-            }
-            template<typename V>
-            static void load(istream& is, V& value){
-                is.read(reinterpret_cast<char*>(&value),sizeof(V));
-            }
-            static void load(istream& is, string& value){
-                size_t size;
-                load(is,size);
-                value.resize(size);
-                is.read(&value[0], size);
-            }
-            static void load(istream& is, T* buffer, size_t size){
-                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
-            }
-            void saveInputsInfo(ostream& os) const{
-                save(os,m_inputsInfo.size());
-                for(auto& pInputInfo:m_inputsInfo){
+        private:
+            static void saveInputsInfo(ostream& os, const vector<shared_ptr<InputInfo<T>>>& inputsInfo){
+                save(os,inputsInfo.size());
+                for(auto& pInputInfo:inputsInfo){
                     save(os,pInputInfo->inputType());
-                    saveEmbedding(os,pInputInfo->embedding());
+                    auto pEmbedding=pInputInfo->embedding();
+                    //only support raw embedding
+                    ASSERT(pEmbedding->get(),"embedding");
+                    Matrix<T> matrix(pEmbedding->get(),pEmbedding->count(),pEmbedding->dimension());
+                    saveEmbedding(os,matrix);
                     save(os,pInputInfo->contextLength());
                     save(os,pInputInfo->poolingId());
                 }
             }
-            void saveHiddenLayers(ostream& os) const{
-                size_t total=m_weights.size();
-                save(os,total);
-                for(size_t i=0;i<total;++i){
-                    save(os,*m_weights[i]);
-                    save(os,*m_biasVectors[i]);
-                    save(os,m_activationFunctionIds[i]);
+            static void saveHiddenLayers(ostream& os, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
+                size_t size=weights.size();
+                save(os,size);
+                for(size_t i=0;i<size;++i){
+                    save(os,*weights[i]);
+                    save(os,*biasVectors[i]);
+                    save(os,activationFunctionIds[i]);
                 }
             }
             static void saveEmbedding(ostream& os, const Matrix<T>& embedding){
@@ -808,30 +837,103 @@ namespace nn {
                 os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*size);
                 ASSERT(os,"os");
             }
-            //Creates inputs for the runtime
-            vector<shared_ptr<Input<T>>> createInputs(const vector<vector<size_t>>& idsInputs) const{
-                ASSERT(idsInputs.size()==m_inputsInfo.size(),"idsInputs");
-                vector<shared_ptr<Input<T>>> inputs;
-                for(size_t i=0;i<idsInputs.size();++i){
-                    inputs.push_back(m_inputsInfo[i]->getInput(idsInputs[i]));
+            static void loadInputsInfo(istream& is, vector<shared_ptr<InputInfo<T>>>& inputsInfo, bool quantizeEmbedding){
+                size_t total=0;
+                load(is,total);
+                int inputType;
+                size_t contextLength;
+                int poolingId;
+                shared_ptr<Embedding<T>> pEmbedding;
+                for(size_t i=0;i<total;++i){
+                    load(is,inputType);
+                    if(quantizeEmbedding){
+                        pEmbedding=loadEmbedding<EmbeddingWith16BitsQuantizedValues<T>>(is);
+                    }else{
+                        pEmbedding=loadEmbedding<EmbeddingWithRawValues<T>>(is);
+                    }
+                    ASSERT(pEmbedding,"pEmbedding");
+                    load(is,contextLength);
+                    load(is,poolingId);
+                    inputsInfo.push_back(newInputInfo(inputType,pEmbedding,contextLength,poolingId));
                 }
-                return inputs;
-            } 
-        private:
-            NN<T,vector<reference_wrapper<Input<T>>>> *m_pRuntime;
-            vector<shared_ptr<InputInfo<T>>> m_inputsInfo; 
-            vector<shared_ptr<Matrix<T>>> m_embeddings;
-            vector<shared_ptr<Matrix<T>>> m_weights;
-            vector<size_t> m_activationFunctionIds;
-            vector<shared_ptr<Vector<T>>> m_biasVectors;
-            const bool m_normalizeOutputWithSoftmax;
+            }
+            static void loadHiddenLayers(istream& is,vector<shared_ptr<Matrix<T>>>& weights,vector<shared_ptr<Vector<T>>>& biasVectors,vector<size_t>& activationFunctionIds){
+                size_t total=0;
+                load(is,total);
+                shared_ptr<Matrix<T>> pPreMatrix=nullptr;
+                size_t activationFunctionId;
+                shared_ptr<Matrix<T>> pMatrix;
+                shared_ptr<Vector<T>> pBias;
+                for(size_t i=0;i<total;++i){
+                    pMatrix=loadMatrix(is);
+                    if(pPreMatrix!=nullptr){
+                        ASSERT(pPreMatrix->row()==pMatrix->col(),"input vector size");
+                    }
+                    pPreMatrix=pMatrix;
+                    pBias=loadVector(is);
+                    load(is,activationFunctionId);
+                    weights.push_back(pMatrix);
+                    biasVectors.push_back(pBias);
+                    activationFunctionIds.push_back(activationFunctionId);
+                }
+            }
+            static void load(istream& is,size_t& row, size_t& col){
+                load(is,row);
+                load(is,col);
+            }
+            static shared_ptr<Matrix<T>> loadMatrix(istream& is){
+                size_t row ;
+                size_t col;
+                load(is,row,col);
+                size_t size=row*col;
+                T* buffer=new T[size];
+                load(is,buffer,size);
+                return make_shared_ptr(new Matrix<T>(shared_ptr<T>(buffer),row,col));
+            }
+            template<class E>
+            static shared_ptr<Embedding<T>> loadEmbedding(istream& is){
+                //singleton global embedding cache implemented by a local static variable
+                static Cache<Embedding<T>> cache;
+                string md5;
+                load(is,md5);
+                size_t row ;
+                size_t col;
+                load(is,row,col);
+                size_t size=row*col;
+                shared_ptr<Embedding<T>> pEmbedding=cache.get(md5);
+                if(pEmbedding==nullptr){
+                    auto buffer=make_shared_ptr(new T[size]);
+                    load(is,buffer.get(),size);
+                    Matrix<T> matrix(buffer,row,col);
+                    pEmbedding=E::create(matrix);
+                    cache.put(md5,pEmbedding);
+                }else{
+                    is.ignore(size*sizeof(T));
+                }
+                return pEmbedding;
+            }
+            static shared_ptr<Vector<T>> loadVector(istream& is){
+                size_t size;
+                load(is,size);
+                T* buffer=new T[size];
+                load(is,buffer,size);
+                return make_shared_ptr(new Vector<T>(shared_ptr<T>(buffer),size));
+            }
+            template<typename V>
+            static void load(istream& is, V& value){
+                is.read(reinterpret_cast<char*>(&value),sizeof(V));
+            }
+            static void load(istream& is, string& value){
+                size_t size;
+                load(is,size);
+                value.resize(size);
+                is.read(&value[0], size);
+            }
+            static void load(istream& is, T* buffer, size_t size){
+                is.read(reinterpret_cast<char*>(buffer),sizeof(T)*size);
+            }
     };
 
-    template<typename T>
-    shared_ptr<MLPModel<T>> newMLPModel(const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& embeddings, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
-        MLPModel<T>* pModel=new MLPModel<T>(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
-        return make_shared_ptr(pModel);
-    }
 }
 
 #endif

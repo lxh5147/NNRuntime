@@ -10,7 +10,7 @@ using namespace nn;
 #endif
 
 typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
-
+typedef MLPModelFactory<TYPE_NN_PARAMETER> TYPE_MLPModelFactory;
 //Loaded models.
 vector<shared_ptr<TYPE_MLPModel>> models;
 
@@ -21,10 +21,9 @@ const size_t HANDLE_INVALID=0;
 
 size_t load(const char* modelPath,bool normalizeOutputWithSoftmax){
     ASSERT(modelPath,"modelPath");
-    decltype(make_shared_ptr(new TYPE_MLPModel())) pModel=nullptr;
+    decltype(TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax)) pModel=nullptr;
     try{
-        pModel=make_shared_ptr(new TYPE_MLPModel(normalizeOutputWithSoftmax));
-        pModel->load(modelPath);
+        pModel=TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax);
     }
     catch(...){
         cerr<<"Failed to load binary model "<<modelPath<<endl;

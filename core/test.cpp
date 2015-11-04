@@ -4,6 +4,7 @@
 using namespace std;
 using namespace common;
 using namespace nn;
+using namespace quantization;
 
 void vectorPlusTest(){
     Vector<float> v1(make_shared_ptr(new float[2]{0.5,0.5}),2);
@@ -122,8 +123,9 @@ void poolingTest(){
 
 void sequenceInputTest(){
     Matrix<float> E(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
+    auto pEmbedding=EmbeddingWithRawValues<float>::create(E);
     std::vector<size_t> idSequence = { 0,2 };
-    SequenceInput<float> input(idSequence,1,E,Poolings<Vector<float>>::get(0));
+    SequenceInput<float> input(idSequence,1,pEmbedding,Poolings<Vector<float>>::get(0));
     auto r=input.get();
     ASSERT(r.size() == 2*3, "r");
     ASSERT(equals(r.data().get()[0] , 0.05f), "r");
@@ -136,7 +138,8 @@ void sequenceInputTest(){
 
 void nonSequenceInputTest(){
     Matrix<float> E(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4}),3,2);
-    NonSequenceInput<float> input(2,E);
+    auto pEmbedding=EmbeddingWithRawValues<float>::create(E);
+    NonSequenceInput<float> input(2,pEmbedding);
     auto r=input.get();
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , 0.3f), "r");
@@ -146,9 +149,9 @@ void nonSequenceInputTest(){
 void inputLayerTest(){
     Matrix<float> E1(make_shared_ptr(new float[3*2]{0,0,0.1,0.2,0.3,0.4} ),3,2);
     std::vector<size_t> idSequence = { 0,2 };
-    SequenceInput<float> sequenceInput(idSequence,1,E1,Poolings<Vector<float>>::get(0));
+    SequenceInput<float> sequenceInput(idSequence,1,EmbeddingWithRawValues<float>::create(E1),Poolings<Vector<float>>::get(0));
     Matrix<float> E2(make_shared_ptr(new float[3*2]{0,0,0.3,0.8,0.2,0.9} ),3,2);
-    NonSequenceInput<float> nonSequenceInput(2,E2);
+    NonSequenceInput<float> nonSequenceInput(2,EmbeddingWithRawValues<float>::create(E2));
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonSequenceInput};
     InputLayer<float> layer;
     auto r =layer.calc(inputs);
@@ -182,8 +185,8 @@ void MLPTest(){
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
         std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,ActivationFunctions<float>::get(0)))
     };
-    SequenceInput <float> sequenceInput({0,2},1,E1,Poolings<Vector<float>>::get(0));
-    NonSequenceInput<float> nonsequenceInput(2,E2);
+    SequenceInput <float> sequenceInput({0,2},1,EmbeddingWithRawValues<float>::create(E1),Poolings<Vector<float>>::get(0));
+    NonSequenceInput<float> nonsequenceInput(2,EmbeddingWithRawValues<float>::create(E2));
     vector<reference_wrapper<Input<float>>> inputs={sequenceInput,nonsequenceInput};
     MLP<float> nn(inputLayer, layers);
     auto r=nn.calc(inputs);
@@ -218,18 +221,105 @@ void cacheTest(){
     ASSERT(cache.get(key).get()==item.get(),"cached");
 }
 
+template<typename T>
+class VectorIterator: public Iterator<T>{
+    public:
+        virtual bool next(T& buffer) {
+            if(m_pos>=m_vector.size()){
+                return false;
+            }
+            buffer=m_vector.data().get()[m_pos];
+            ++m_pos;
+            return true;
+        }
+        VectorIterator<T>& reset(){
+            m_pos=0;
+            return *this;
+        }
+    public:
+       VectorIterator(const Vector<T>& vector):m_vector(vector),m_pos(0){}
+    private:
+        Vector<T> m_vector;
+        size_t m_pos;
+};
+
+void calcMinMaxTest(){
+    auto vector=newVector(new float[5]{1,2,3,-1,8},5);
+    VectorIterator<float> it(*vector);
+    float min,max;
+    calcMinMax(it,min,max);
+    ASSERT(equals(min,-1),"min");
+    ASSERT(equals(max,8),"max");
+}
+
+void quantizationTest(){
+    auto vector=newVector(new float[5]{1,2,3,-1,8},5);
+    VectorIterator<float> it(*vector);
+    float min,max;
+    calcMinMax(it,min,max);
+    it.reset();
+    auto size=20;
+    auto quantizer=_16BitsLinearQuantizer<float>::create(it,size,min,max);
+    it.reset();
+    float cur;
+    while(it.next(cur)){
+        ASSERT(equals(cur, quantizer->unquantize(quantizer->quantize(cur))),"quantization");
+    }
+    //more tests
+    it.reset();
+    auto quantizer2=_8BitsLinearQuantizer<float>::create(it,1,min,max);
+    it.reset();
+    while(it.next(cur)){
+        ASSERT(0==quantizer2->quantize(cur),"quantize");
+    }
+    ASSERT(equals(13.0/5,quantizer2->unquantize(0)),"unquantize");
+}
+
+void embeddingTest(){
+    vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.4},3,2)};
+    auto pEmbedding=EmbeddingWithRawValues<float>::create(*embeddings[0]);
+    ASSERT(3==pEmbedding->count(),"count");
+    ASSERT(2==pEmbedding->dimension(),"dimension");
+    auto buffer=make_shared_ptr(new float[2]);
+    pEmbedding->get(0,buffer.get());
+    ASSERT(buffer.get()[0]==0,"buffer");
+    ASSERT(buffer.get()[1]==0,"buffer");
+    pEmbedding->get(1,buffer.get());
+    ASSERT(equals(buffer.get()[0],0.1),"buffer");
+    ASSERT(equals(buffer.get()[1],0.2),"buffer");
+    pEmbedding->get(2,buffer.get());
+    ASSERT(equals(buffer.get()[0],0.3),"buffer");
+    ASSERT(equals(buffer.get()[1],0.4),"buffer");
+}
+
+void quantizedEmbeddingTest(){
+    vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.3002},3,2)};
+    //255
+    auto pEmbedding=EmbeddingWithQuantizedValues<float,unsigned char>::create(*embeddings[0]);
+    ASSERT(3==pEmbedding->count(),"count");
+    ASSERT(2==pEmbedding->dimension(),"dimension");
+    auto buffer=make_shared_ptr(new float[2]);
+    pEmbedding->get(0,buffer.get());
+    ASSERT(equals(buffer.get()[0],0),"buffer");
+    ASSERT(equals(buffer.get()[1],0),"buffer");
+    pEmbedding->get(1,buffer.get());
+    ASSERT(equals(buffer.get()[0],0.1),"buffer");
+    ASSERT(equals(buffer.get()[1],0.2),"buffer");
+    pEmbedding->get(2,buffer.get());
+    ASSERT(equals(buffer.get()[0],0.3001),"buffer");
+    ASSERT(equals(buffer.get()[1],0.3001),"buffer");
+}
+
 void MLPModelTest(){
     //describe model in memory
     vector<shared_ptr<Matrix<float>>> embeddings={newMatrix(new float[3*2] {0,0,0.1,0.2,0.3,0.4},3,2),newMatrix(new float[3*2]{0,0,0.3,0.8,0.2,0.9},3,2)};
-    auto inputsInfo={newInputInfo(*embeddings[0],1,Poolings<Vector<float>>::AVG),newInputInfo(*embeddings[1])};
+    auto pEmbedding1=EmbeddingWithRawValues<float>::create(*embeddings[0]);
+    auto pEmbedding2=EmbeddingWithRawValues<float>::create(*embeddings[1]);
+    auto inputsInfo={newInputInfo(pEmbedding1,1,Poolings<Vector<float>>::AVG),newInputInfo(pEmbedding2)};
     //two hidden layers
     auto weights={newMatrix(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}, 2,8),newMatrix(new float[2*2] {0.2,0.3,0.1,0.5}, 2,2)};
     auto biasVectors={newVector(new float[2]{0.1,0.2},2),newVector(new float[2]{0.3,0.4},2)};
     vector<size_t> activationFunctionIds={ActivationFunctions<float>::TANH,ActivationFunctions<float>::TANH};
-    MLPModel<float> model(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
-    //predict
-    vector<vector<size_t>> idsInputs ={{0,2},{2}};
-    auto r=model.predict(idsInputs);
     auto oh11=tanh(0.05*0.1 + 0.1*0.2+ 0.15*0.3 + 0.2*0.4 + 0.2*0.5 + 0.3*0.6 + 0.2*0.7+0.9*0.8 + 0.1);
     auto oh12=tanh(0.05*0.9 + 0.1*1.0+ 0.15*1.1 + 0.2*1.2 + 0.2*1.3 + 0.3*1.4 + 0.2*1.5+0.9*1.6 + 0.2);
     auto t1=tanh(oh11*0.2 + oh12*0.3+0.3);
@@ -237,26 +327,26 @@ void MLPModelTest(){
     //soft max
     auto o1=exp(t1)/(exp(t1)+exp(t2));
     auto o2=exp(t2)/(exp(t1)+exp(t2));
+    MLPModel<float> model(inputsInfo,weights,biasVectors,activationFunctionIds);
+    //predict
+    vector<vector<size_t>> idsInputs ={{0,2},{2}};
+    auto r=model.predict(idsInputs);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
     ASSERT(equals(r.data().get()[1],o2), "r");
-    //save the model
+    //save and load model
     const char* modelFile="model.bin";
-    model.save(modelFile);
-    //load the model
-    MLPModel<float> modelLoaded;
-    modelLoaded.load(modelFile);
-    //apply the model
-    r=modelLoaded.predict(idsInputs);
+    MLPModelFactory<float>::save(modelFile,inputsInfo,weights,biasVectors,activationFunctionIds);
+    auto pModelLoaded=MLPModelFactory<float>::load(modelFile);
+    r=pModelLoaded->predict(idsInputs);
+        cout << "ok 2" << endl;
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
     ASSERT(equals(r.data().get()[1],o2), "r");
-
     //load the model with embedding cached
-    MLPModel<float> modelWithCache;
-    modelWithCache.load(modelFile);
+    auto pModelWithCache=MLPModelFactory<float>::load(modelFile);
     //apply the model
-    r=modelWithCache.predict(idsInputs);
+    r=pModelWithCache->predict(idsInputs);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
     ASSERT(equals(r.data().get()[1],o2), "r");
@@ -301,7 +391,7 @@ void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords
     auto otherEmbedding=newMatrix<float>(numberOfOther,dimensionOfOtherEmbedding);
     generateRandomNumbers(otherEmbedding->data().get(),numberOfOther*dimensionOfOtherEmbedding);
     auto contextLength=1;
-    auto inputsInfo={newInputInfo(*wordEmbedding,contextLength,Poolings<Vector<float>>::AVG),newInputInfo(*otherEmbedding)};
+    auto inputsInfo={newInputInfo(EmbeddingWithRawValues<float>::create(*wordEmbedding),contextLength,Poolings<Vector<float>>::AVG),newInputInfo(EmbeddingWithRawValues<float>::create(*otherEmbedding))};
     //two hidden layers
     auto hiddenLayer0NumberOfOutputNodes=60;
     auto hiddenLayer1NumberOfOutputNodes=18;
@@ -313,15 +403,12 @@ void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords
     generateRandomNumbers(biasVectors[1]->data().get(),hiddenLayer1NumberOfOutputNodes);
     size_t activationFunctionId=ActivationFunctions<float>::RELU;
     vector<size_t> activationFunctionIds={activationFunctionId,activationFunctionId};
-    MLPModel<float> model(inputsInfo,{wordEmbedding,otherEmbedding},weights,biasVectors,activationFunctionIds);
-    //save model
-    model.save(modelFile);
+    MLPModelFactory<float>::save(modelFile,inputsInfo,weights,biasVectors,activationFunctionIds);
 }
 
 void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, size_t numberOfOther){ 
     perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
-    MLPModel<float> model;
-    model.load(modelFile);
+    auto pModel=MLPModelFactory<float>::load(modelFile);
     auto predictionTimes=1000;
     auto sequenceLength=25;
     vector<size_t> wordIdSequence(sequenceLength);
@@ -329,7 +416,7 @@ void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, siz
     for(auto i=0;i<predictionTimes;++i){
         generateRandomNumbers(wordIdSequence,sequenceLength,0,numberOfWords-1);
         generateRandomNumbers(otherId,1,0,numberOfOther-1);
-        model.predict({wordIdSequence,otherId});
+        pModel->predict({wordIdSequence,otherId});
     }
 }
 
@@ -347,10 +434,14 @@ void unitTest(){
     nonSequenceInputTest();
     inputLayerTest();
     softmaxLayerTest();
-    MLPTest();
-    cacheTest();
-    MLPModelTest();
     writeReadFilleTest();
+    calcMinMaxTest();
+    quantizationTest();
+    cacheTest();
+    embeddingTest();
+    quantizedEmbeddingTest();
+    MLPTest();
+    MLPModelTest();
 }
 
 void perfTest(){

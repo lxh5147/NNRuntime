@@ -12,6 +12,7 @@ This file defines the runtime of a neural network.
 #include <string>
 #include <streambuf>
 #include <regex>
+#include <vector>
 
 namespace nn_tools {
     using namespace std;
@@ -152,25 +153,19 @@ namespace nn_tools {
     template <typename T>
     class TheanoModel{
         public:
-            static shared_ptr<MLPModel<T>> load(const string& path, bool includeOutputSoftmaxLayer=true){
+            static void load(const string& path, vector<shared_ptr<InputInfo<T>>>& inputsInfo, vector<shared_ptr<Matrix<T>>>& weights, vector<shared_ptr<Vector<T>>>& biasVectors, vector<size_t>& activationFunctionIds, bool includeOutputSoftmaxLayer=false){
                 TheanoModel<T> theanoModel(path);
                 //load manifest and hyper parameters
                 theanoModel.loadManifest();
                 theanoModel.loadHyperparams();
-                //prepare inputs info, starting with sequence features
-                vector<shared_ptr<InputInfo<T>>> inputsInfo;
-                vector<shared_ptr<Matrix<T>>> embeddings;
                 for(const auto& feature:theanoModel.m_sequenceFeatures){
-                    theanoModel.loadInputInfo(feature,embeddings,inputsInfo,true);
+                    theanoModel.loadInputInfo(feature,inputsInfo,true);
                 }
                 for(const auto& feature:theanoModel.m_nonSequenceFeatures){
-                    theanoModel.loadInputInfo(feature,embeddings,inputsInfo,false);
+                    theanoModel.loadInputInfo(feature,inputsInfo,false);
                 }
                 //prepare layers
                 auto activationFunctionId=getActivationFunctionId(theanoModel.m_activationFunction);
-                vector<shared_ptr<Matrix<T>>> weights;
-                vector<shared_ptr<Vector<T>>> biasVectors;
-                vector<size_t> activationFunctionIds;
                 for(size_t i=0;i<theanoModel.m_numberOfHiddenLayers;++i){
                     string name="h";
                     name+=to_string(i);
@@ -182,22 +177,20 @@ namespace nn_tools {
                     theanoModel.loadLayer("output",weights,biasVectors);
                     activationFunctionIds.push_back(ActivationFunctions<T>::IDENTITY);
                 }
-                return newMLPModel(inputsInfo,embeddings,weights,biasVectors,activationFunctionIds);
             }
         private:
-             void loadInputInfo(const string& feature, vector<shared_ptr<Matrix<T>>>& embeddings, vector<shared_ptr<InputInfo<T>>>& inputsInfo, bool isSequenceFeature){
+             void loadInputInfo(const string& feature, vector<shared_ptr<InputInfo<T>>>& inputsInfo, bool isSequenceFeature){
                 //embedding:W_[feature name].npy, e.g., W_words.npy
                 string embeddingFile="W_";
                 embeddingFile+=feature;
                 embeddingFile+=".npy";
                 //one row one embedding
                 auto embedding=loadMatrix(getFilePath(m_path,embeddingFile));
-                embeddings.push_back(embedding);
                 if(isSequenceFeature){
-                    inputsInfo.push_back(newInputInfo(*embedding,m_contextLength,m_poolingId));
+                    inputsInfo.push_back(newInputInfo(EmbeddingWithRawValues<T>::create(*embedding),m_contextLength,m_poolingId));
                 }
                 else{
-                    inputsInfo.push_back(newInputInfo(*embedding));
+                    inputsInfo.push_back(newInputInfo(EmbeddingWithRawValues<T>::create(*embedding)));
                 }
             }
             void loadLayer(const string& name, vector<shared_ptr<Matrix<T>>>& weights,vector<shared_ptr<Vector<T>>>& biasVectors){
@@ -279,6 +272,16 @@ namespace nn_tools {
             const int m_poolingId;
             size_t m_numberOfHiddenLayers;
     };
+
+    template<typename T>
+    void import_theano_model(const string& inputTheanoModelFolder, const string& outputRuntimeModelFile, bool includeOutputSoftmaxLayer){
+        vector<shared_ptr<InputInfo<T>>> inputsInfo;
+        vector<shared_ptr<Matrix<T>>> weights;
+        vector<shared_ptr<Vector<T>>> biasVectors;
+        vector<size_t> activationFunctionIds;
+        TheanoModel<T>::load(inputTheanoModelFolder,inputsInfo,weights,biasVectors,activationFunctionIds,includeOutputSoftmaxLayer);
+        MLPModelFactory<T>::save(outputRuntimeModelFile,inputsInfo,weights,biasVectors,activationFunctionIds);
+    }
 }
 
 #endif
