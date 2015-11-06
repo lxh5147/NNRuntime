@@ -4,7 +4,8 @@ project(nn_runtime_jni)
 
 # Enable C++11
 set(CMAKE_CXX_FLAGS                "-Wall -std=c++11")
-set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g")
+# Enable DEBUG and PERF macros for Debug version
+set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -DDEBUG -DPERF")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")

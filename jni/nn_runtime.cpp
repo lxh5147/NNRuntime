@@ -2,8 +2,11 @@
 #include "nn_runtime.h"
 #include <mutex>
 
+
 using namespace std;
+using namespace common;
 using namespace nn;
+
 
 #ifndef TYPE_NN_PARAMETER
 #define TYPE_NN_PARAMETER float
@@ -13,7 +16,6 @@ typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
 typedef MLPModelFactory<TYPE_NN_PARAMETER> TYPE_MLPModelFactory;
 //Loaded models.
 vector<shared_ptr<TYPE_MLPModel>> models;
-
 //Lock associated with the models
 mutex modelsLock;
 
@@ -23,7 +25,17 @@ size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWit
     ASSERT(modelPath,"modelPath");
     decltype(TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax)) pModel=nullptr;
     try{
+        #ifdef DEBUG
+        cout<<"DEBUG\tload model with modelPath:"<<modelPath<<",quantizeEmbedding:"<<quantizeEmbedding<<",normalizeOutputWithSoftmax:"<<normalizeOutputWithSoftmax<<endl;
+        #endif
+        #ifdef PERF
+        auto wctstart=CLOCK::now();
+        #endif
         pModel=TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax);
+        #ifdef PERF
+        auto wctduration = (CLOCK::now()-wctstart);
+        cout << "PERF\tload finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
+        #endif
     }
     catch(...){
         cerr<<"Failed to load binary model "<<modelPath<<endl;
@@ -33,13 +45,16 @@ size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWit
         modelsLock.lock();
         models.push_back(pModel);
         size_t handle = models.size();
-        modelsLock.unlock(); 
+        modelsLock.unlock();
+#ifdef DEBUG
+        cout<<"DEBUG\tloaded model handle:"<<handle<<endl;
+#endif
         return handle;
     } catch (const bad_alloc &ex) {
-       modelsLock.unlock(); 
+       modelsLock.unlock();
        cerr<<ex.what() << ": failed to load binary model "<<modelPath<<endl;
        return HANDLE_INVALID;
-    } 
+    }
 }
 
 //Helper function that converts Vector to std::vector.
@@ -56,10 +71,36 @@ vector<double> to_vector(const Vector<T>& input){
 
 //Predicts the probability of each category.
 vector<double> predict(size_t modelHandle, const vector<vector<size_t>>& idsInputs){
+    #ifdef DEBUG
+    cout<<"DEBUG\tpredict with modelHandle:"<<modelHandle<<",idsInputs:";
+    for(auto& ids:idsInputs){
+        cout<<"[ ";
+        for(auto& id:ids){
+            cout<<id<<" ";
+        }
+        cout<<"]";
+    }
+    cout<<endl;
+    #endif
     ASSERT(modelHandle>0 && modelHandle<=models.size(),"modelHandle");
     TYPE_MLPModel* pModel=models[modelHandle-1].get();
     try {
-      return to_vector(pModel->predict(idsInputs));
+        #ifdef PERF
+        auto wctstart=CLOCK::now();
+        #endif
+        auto prediction= to_vector(pModel->predict(idsInputs));
+        #ifdef PERF
+        auto wctduration = (CLOCK::now()-wctstart);
+        cout << "PERF\tpredict finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
+        #endif
+        #ifdef DEBUG
+        cout<<"DEBUG\tpredict:";
+        for(auto& prob:prediction){
+            cout<<prob<<" ";
+        }
+        cout<<endl;
+        #endif
+        return prediction;
     } catch (...) {
         cerr<<"Failed to predict with: model handle="<<modelHandle<<endl;
         cerr<<"Id inputs="<<endl;

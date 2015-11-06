@@ -9,9 +9,15 @@ This file defines common functions.
 #include <map>
 #include <mutex>
 #include <string>
+#include <chrono>
+
 
 namespace common{
     using namespace std;
+
+    //PERF related helpers
+    typedef chrono::high_resolution_clock CLOCK;
+    #define microseconds(x) (std::chrono::duration_cast<chrono::microseconds>(wctduration).count())
 
     //Defines an macro that logs error message and stops the current program if some condition does not hold.
     #define ASSERT(condition, message) \
