@@ -19,11 +19,11 @@ mutex modelsLock;
 
 const size_t HANDLE_INVALID=0;
 
-size_t load(const char* modelPath,bool normalizeOutputWithSoftmax){
+size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWithSoftmax){
     ASSERT(modelPath,"modelPath");
-    decltype(TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax)) pModel=nullptr;
+    decltype(TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax)) pModel=nullptr;
     try{
-        pModel=TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax);
+        pModel=TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax);
     }
     catch(...){
         cerr<<"Failed to load binary model "<<modelPath<<endl;
@@ -57,7 +57,7 @@ vector<double> to_vector(const Vector<T>& input){
 //Predicts the probability of each category.
 vector<double> predict(size_t modelHandle, const vector<vector<size_t>>& idsInputs){
     ASSERT(modelHandle>0 && modelHandle<=models.size(),"modelHandle");
-    TYPE_MLPModel* pModel=models[modelHandle-1].get();    
+    TYPE_MLPModel* pModel=models[modelHandle-1].get();
     try {
       return to_vector(pModel->predict(idsInputs));
     } catch (...) {

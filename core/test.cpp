@@ -339,7 +339,6 @@ void MLPModelTest(){
     MLPModelFactory<float>::save(modelFile,inputsInfo,weights,biasVectors,activationFunctionIds);
     auto pModelLoaded=MLPModelFactory<float>::load(modelFile);
     r=pModelLoaded->predict(idsInputs);
-        cout << "ok 2" << endl;
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0],o1), "r");
     ASSERT(equals(r.data().get()[1],o2), "r");

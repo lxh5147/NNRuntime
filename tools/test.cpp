@@ -59,7 +59,7 @@ void json_util_get_string_values_test(){
 }
 
 void integration_test(const string& path){
-    auto model=nn_tools::MLPModelFactory<float>::load(path);
+    auto model=MLPModelFactory<float>::load(path);
     //sequence: "prefix_1", "prefix_2", "prefix_3", "suffix_1", "suffix_2", "suffix_3", "words"
     //non sequence:field_ids
     vector<vector<size_t>> idsInputs ={{16,0,3,8,19,10},{157,0,3,90,29,328},{0,0,0,145,0,1683},{10,0,3,11,13,3},{134,0,3,16,27,63},{0,0,0,140,0,100},{611,0,3,175,37,6181},{3}};
