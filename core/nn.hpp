@@ -114,14 +114,16 @@ namespace nn {
             Vector<T> multiply (const Vector<T>& vector) const {
                 ASSERT(m_col==vector.size(),"v");
                 T* inputElements=vector.data().get();
-                T* outputElements=new T[m_row];
+                T* outputElements=new T[m_row]();
+                T* outputElement=outputElements;
+                T* inputElement;
                 T* matrix=m_data.get();
                 for(size_t i=0;i<m_row;++i){
-                    outputElements[i]=0;
-                    T* matrixElements=matrix+i*m_col;
+                    inputElement=inputElements;
                     for(size_t j=0;j<m_col;++j){
-                        outputElements[i]+=inputElements[j]*matrixElements[j];
+                        *outputElement+=(*inputElement++)*(*matrix++);
                     }
+                    ++outputElement;
                 }
                 return Vector<T> (shared_ptr<T>(outputElements), m_row);
             }

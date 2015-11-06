@@ -412,11 +412,35 @@ void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, siz
     auto sequenceLength=25;
     vector<size_t> wordIdSequence(sequenceLength);
     vector<size_t> otherId(1);
+    #ifdef PERF
+    auto wctstart=CLOCK::now();
+    #endif
     for(auto i=0;i<predictionTimes;++i){
         generateRandomNumbers(wordIdSequence,sequenceLength,0,numberOfWords-1);
         generateRandomNumbers(otherId,1,0,numberOfOther-1);
         pModel->predict({wordIdSequence,otherId});
     }
+    #ifdef PERF
+    auto wctduration = (CLOCK::now()-wctstart);
+    cout << "PERF\tfinished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
+    #endif
+}
+
+void perfTestWithRealModel(){
+    //[ 411 8286 4659 ][ 4 14 8 ][ 64 34 869 ][ 56 29 59 ][ 131 204 59 ][ 226 529 508 ][ 9 6 14 ][ 2 ]
+    auto pModel=MLPModelFactory<float>::load("zoe_random_nbow-81.model.bin");
+    vector<vector<size_t>> idsInputs={{411,8286,4659},{4,14,8},{64,34,869},{56,29,59},{131,204,59},{226,529,508},{9,6,14},{2}};
+    auto predictionTimes=1000;
+    #ifdef PERF
+    auto wctstart=CLOCK::now();
+    #endif
+    for(auto i=0;i<predictionTimes;++i){
+        pModel->predict(idsInputs);
+    }
+    #ifdef PERF
+    auto wctduration = (CLOCK::now()-wctstart);
+    cout << "PERF\tfinished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
+    #endif
 }
 
 void unitTest(){
@@ -448,7 +472,7 @@ void perfTest(){
     auto numberOfWords=1000000;
     auto numberOfOther=1000;
     string modelFile="model.faked.bin";
-    perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
+    //perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
     perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
 }
 
@@ -461,9 +485,13 @@ int main( int argc, const char* argv[] )
     if(option=="perf"){
         perfTest();
     }
+    if(option=="perfReal"){
+        perfTestWithRealModel();
+    }
     else if(option=="all"){
         unitTest();
         perfTest();
+        perfTestWithRealModel();
     } else{
         //default: do unit test
         unitTest();
