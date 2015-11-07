@@ -106,8 +106,30 @@ namespace nn {
         return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
     }
 
-    //Defines a matrix of shape row*col.
+    //Defines A*x implementation
     template <class T>
+    class MatrixVectoryMultiplier{
+        public:
+            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                const T* a=A;
+                const T* x0;
+                for(size_t i=0;i<row;++i){
+                    x0=x;
+                    for(size_t j=0;j<col;++j){
+                        *y+=(*x0++)*(*a++);
+                    }
+                    ++y;
+                }
+            }
+    };
+
+    //Defines a matrix of shape row*col.
+    template <class T,template<class> class MVM=MatrixVectoryMultiplier>
     class Matrix {
         public:
             //Returns the column vector of M*v. v.size must equals to the col of this matrix.
@@ -115,16 +137,8 @@ namespace nn {
                 ASSERT(m_col==vector.size(),"v");
                 T* inputElements=vector.data().get();
                 T* outputElements=new T[m_row]();
-                T* outputElement=outputElements;
-                T* inputElement;
                 T* matrix=m_data.get();
-                for(size_t i=0;i<m_row;++i){
-                    inputElement=inputElements;
-                    for(size_t j=0;j<m_col;++j){
-                        *outputElement+=(*inputElement++)*(*matrix++);
-                    }
-                    ++outputElement;
-                }
+                MVM<T>::multiply(matrix,inputElements,outputElements,m_row,m_col);
                 return Vector<T> (shared_ptr<T>(outputElements), m_row);
             }
             //Returns the number of rows of this matrix.
