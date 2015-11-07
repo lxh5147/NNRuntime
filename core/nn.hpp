@@ -141,14 +141,57 @@ namespace nn {
                 ASSERT(row>0,"row");
                 ASSERT(col>0,"col");
                 const T* a=A;
-                const T* x0;
+                const T* _x;
                 for(size_t i=0;i<row;++i){
-                    x0=x;
+                    _x=x;
                     *y=0;
                     for(size_t j=0;j<col;++j){
-                        *y+=(*x0++)*(*a++);
+                        *y+=(*_x++)*(*a++);
                     }
                     ++y;
+                }
+            }
+    };
+
+    //Defines A*x implementation with unrolled for loop
+    template <class T>
+    class MatrixVectoryMultiplierWithUnrolledLoop{
+        public:
+            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                const T* a1=A;
+                const T* _x;
+                if(row%2==1){
+                    _x=x;
+                    *y=0;
+                    for(size_t j=0;j<col;++j){
+                        *y+=(*_x++)*(*a1++);
+                    }
+                    ++y;
+                }
+                //next row
+                const T* a2=a1+col;
+                T y1,y2;
+                //process two rows per loop
+                for(size_t i=0;i<row/2;++i){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        ++_x;
+                    }
+                    *y=y1;
+                    ++y;
+                    *y=y2;
+                    ++y;
+                    a1+=col;
+                    a2+=col;
                 }
             }
     };

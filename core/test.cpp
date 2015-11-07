@@ -48,10 +48,11 @@ void vectorAggregateTest(){
     ASSERT(equals(result , 1.1f), "result");
 }
 
+template<template<class> class MVM>
 void matrixMultiplyTest(){
     Matrix<float> m(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
     Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
-    auto r=multiply(m,v);
+    auto r=multiply<float,MVM>(m,v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
     ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
@@ -449,7 +450,8 @@ void unitTest(){
     vectorMaxTest();
     vectorApplyTest();
     vectorAggregateTest();
-    matrixMultiplyTest();
+    matrixMultiplyTest<MatrixVectoryMultiplier>();
+    matrixMultiplyTest<MatrixVectoryMultiplierWithUnrolledLoop>();
     activationFunctionTest();
     poolingTest();
     hiddenLayerTest();
