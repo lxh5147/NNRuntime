@@ -51,7 +51,7 @@ void vectorAggregateTest(){
 void matrixMultiplyTest(){
     Matrix<float> m(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
     Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
-    auto r=m.multiply(v);
+    auto r=multiply(m,v);
     ASSERT(r.size() == 2, "r");
     ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
     ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
@@ -74,7 +74,7 @@ void activationFunctionTest(){
 void hiddenLayerTest(){
     Matrix<float> W(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
     Vector<float> b(make_shared_ptr(new float[2]{1.5,1.8}),2);
-    HiddenLayer<float> layer(W,b,ActivationFunctions<float>::get(0));
+    HiddenLayer<float,MatrixVectoryMultiplier> layer(W,b,ActivationFunctions<float>::get(0));
     Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
     auto r=layer.calc(v);
     ASSERT(r.size() == 2, "r");
@@ -183,7 +183,7 @@ void MLPTest(){
     Matrix<float> W(make_shared_ptr(new float[2*8] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6}), 2,8);
     Vector<float> b(make_shared_ptr(new float[2]{0.1,0.2}),2);
     std::vector<std::shared_ptr<Layer<float, Vector<float>>>> layers={
-        std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float> (W,b,ActivationFunctions<float>::get(0)))
+        std::shared_ptr<Layer<float, Vector<float>>>(new HiddenLayer<float,MatrixVectoryMultiplier> (W,b,ActivationFunctions<float>::get(0)))
     };
     SequenceInput <float> sequenceInput({0,2},1,EmbeddingWithRawValues<float>::create(E1),Poolings<Vector<float>>::get(0));
     NonSequenceInput<float> nonsequenceInput(2,EmbeddingWithRawValues<float>::create(E2));

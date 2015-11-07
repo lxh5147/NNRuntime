@@ -14,7 +14,7 @@ using namespace nn;
 
 typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
 typedef MLPModelFactory<TYPE_NN_PARAMETER> TYPE_MLPModelFactory;
-typedef MLPModelFactory<TYPE_NN_PARAMETER,EmbeddingWith16BitsQuantizedValues> TYPE_MLPModelWith16BitsQuantizedEmbeddingFactory;
+
 //Loaded models.
 vector<shared_ptr<TYPE_MLPModel>> models;
 //Lock associated with the models
@@ -32,7 +32,7 @@ size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWit
         #ifdef PERF
         auto wctstart=CLOCK::now();
         #endif
-        pModel=quantizeEmbedding?TYPE_MLPModelWith16BitsQuantizedEmbeddingFactory::load(modelPath,normalizeOutputWithSoftmax):TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax);
+        pModel=quantizeEmbedding?TYPE_MLPModelFactory::load<EmbeddingWith16BitsQuantizedValues>(modelPath,normalizeOutputWithSoftmax):TYPE_MLPModelFactory::load<EmbeddingWithRawValues>(modelPath,normalizeOutputWithSoftmax);
         #ifdef PERF
         auto wctduration = (CLOCK::now()-wctstart);
         cout << "PERF\tload finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;

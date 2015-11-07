@@ -106,41 +106,10 @@ namespace nn {
         return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
     }
 
-    //Defines A*x implementation
-    template <class T>
-    class MatrixVectoryMultiplier{
-        public:
-            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
-                ASSERT(A,"A");
-                ASSERT(x,"x");
-                ASSERT(y,"y");
-                ASSERT(row>0,"row");
-                ASSERT(col>0,"col");
-                const T* a=A;
-                const T* x0;
-                for(size_t i=0;i<row;++i){
-                    x0=x;
-                    for(size_t j=0;j<col;++j){
-                        *y+=(*x0++)*(*a++);
-                    }
-                    ++y;
-                }
-            }
-    };
-
     //Defines a matrix of shape row*col.
-    template <class T,template<class> class MVM=MatrixVectoryMultiplier>
+    template <class T>
     class Matrix {
         public:
-            //Returns the column vector of M*v. v.size must equals to the col of this matrix.
-            Vector<T> multiply (const Vector<T>& vector) const {
-                ASSERT(m_col==vector.size(),"v");
-                T* inputElements=vector.data().get();
-                T* outputElements=new T[m_row]();
-                T* matrix=m_data.get();
-                MVM<T>::multiply(matrix,inputElements,outputElements,m_row,m_col);
-                return Vector<T> (shared_ptr<T>(outputElements), m_row);
-            }
             //Returns the number of rows of this matrix.
             size_t row() const {
                 return m_row;
@@ -161,6 +130,42 @@ namespace nn {
             const size_t m_col;
     };
 
+    //Defines A*x implementation
+    template <class T>
+    class MatrixVectoryMultiplier{
+        public:
+            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                const T* a=A;
+                const T* x0;
+                for(size_t i=0;i<row;++i){
+                    x0=x;
+                    *y=0;
+                    for(size_t j=0;j<col;++j){
+                        *y+=(*x0++)*(*a++);
+                    }
+                    ++y;
+                }
+            }
+    };
+
+    //Defines helper function that returns the column vector of M*v. v.size must equals to the col of this matrix.
+    template<class T,template<class> class MVM=MatrixVectoryMultiplier>
+    Vector<T> multiply (const Matrix<T>& matrix, const Vector<T>& vector) {
+            ASSERT(matrix.col()==vector.size(),"v");
+            size_t row=matrix.row();
+            size_t col=matrix.col();
+            T* x=vector.data().get();
+            T* y=new T[row];
+            T* A=matrix.data().get();
+            MVM<T>::multiply(A,x,y,row,col);
+            return Vector<T> (shared_ptr<T>(y), row);
+    }
+
     //Defines helper function to create shared pointer of matrix.
     template<typename T>
     shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
@@ -178,8 +183,8 @@ namespace nn {
             virtual ~Layer(){}
     };
 
-    //Defines a fully connected hidden layer.
-    template<class T>
+    //Defines a fully connected hidden layer. MVM is the matrix-vector-multiply strategy.
+    template<class T,template<class> class MVM>
     class HiddenLayer: public Layer<T, Vector<T>> {
         public:
             //W: output*input matrix
@@ -189,7 +194,7 @@ namespace nn {
             }
         public:
             virtual Vector<T> calc(const  Vector<T>& input) const {
-                Vector<T> output = m_weights.multiply(input);
+                Vector<T> output = multiply<T,MVM>(m_weights,input);
                 output.plus(m_bias);
                 output.apply(m_activationFunc);
                 return output;
@@ -721,7 +726,7 @@ namespace nn {
     }
 
     //Defines MLP model.
-    template<class T>
+    template<class T,template<class> class MVM=MatrixVectoryMultiplier>
     class MLPModel: public NNModel<T>{
         public:
             virtual Vector<T> predict(const vector<vector<size_t>>& idsInputs) const {
@@ -745,7 +750,7 @@ namespace nn {
                 size_t total=weights.size();
                 for(size_t i=0;i<total;++i){
                     //Hidden layer holders a copy of connection weights and bias vectors.
-                    layers.push_back(make_shared_ptr(new HiddenLayer<T>(*weights[i],*biasVectors[i],ActivationFunctions<T>::get(activationFunctionIds[i]))));
+                    layers.push_back(make_shared_ptr(new HiddenLayer<T,MVM>(*weights[i],*biasVectors[i],ActivationFunctions<T>::get(activationFunctionIds[i]))));
                 }
                 if(normalizeOutputWithSoftmax){
                     layers.push_back(make_shared_ptr(new SoftmaxLayer<T>()));
@@ -777,26 +782,29 @@ namespace nn {
     template<class T> using EmbeddingWith16BitsQuantizedValues = EmbeddingWithQuantizedValues<T,unsigned short>;
 
     //Defines MLP model factory.
-    template<class T, template<class> class E=EmbeddingWithRawValues>
+    template<class T>
     class MLPModelFactory {
         public:
+            //Saves model
             static void save(const string& modelPath, const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
                 ofstream os(modelPath, ios::binary);
                 ASSERT(os.is_open(),"os");
                 saveInputsInfo(os,inputsInfo);
                 saveHiddenLayers(os,weights,biasVectors,activationFunctionIds);
             }
-            static shared_ptr<MLPModel<T>> load(const string& modelPath, bool normalizeOutputWithSoftmax=true){
+            //Loads model
+            template<template<class> class E=EmbeddingWithRawValues,template<class> class MVM=MatrixVectoryMultiplier>
+            static shared_ptr<MLPModel<T,MVM>> load(const string& modelPath, bool normalizeOutputWithSoftmax=true){
                 vector<shared_ptr<InputInfo<T>>> inputsInfo;
                 vector<shared_ptr<Matrix<T>>> weights;
                 vector<shared_ptr<Vector<T>>> biasVectors;
                 vector<size_t> activationFunctionIds;
                 ifstream is(modelPath,ios::binary);
                 ASSERT(is.is_open(),"is");
-                loadInputsInfo(is,inputsInfo);
+                loadInputsInfo<E>(is,inputsInfo);
                 loadHiddenLayers(is,weights,biasVectors,activationFunctionIds);
                 is.close();
-                return make_shared_ptr(new MLPModel<T>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax));
+                return make_shared_ptr(new MLPModel<T,MVM>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax));
             }
         private:
             static void saveInputsInfo(ostream& os, const vector<shared_ptr<InputInfo<T>>>& inputsInfo){
@@ -853,6 +861,7 @@ namespace nn {
                 os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*size);
                 ASSERT(os,"os");
             }
+            template<template<class> class E>
             static void loadInputsInfo(istream& is, vector<shared_ptr<InputInfo<T>>>& inputsInfo){
                 size_t total=0;
                 load(is,total);
@@ -862,7 +871,7 @@ namespace nn {
                 shared_ptr<Embedding<T>> pEmbedding;
                 for(size_t i=0;i<total;++i){
                     load(is,inputType);
-                    pEmbedding=loadEmbedding(is);
+                    pEmbedding=loadEmbedding<E>(is);
                     ASSERT(pEmbedding,"pEmbedding");
                     load(is,contextLength);
                     load(is,poolingId);
@@ -900,8 +909,9 @@ namespace nn {
                 size_t size=row*col;
                 T* buffer=new T[size];
                 load(is,buffer,size);
-                return make_shared_ptr(new Matrix<T>(shared_ptr<T>(buffer),row,col));
+                return newMatrix<T>(buffer,row,col);
             }
+            template<template<class> class E>
             static shared_ptr<Embedding<T>> loadEmbedding(istream& is){
                 //singleton global embedding cache implemented by a local static variable
                 static Cache<Embedding<T>> cache;
