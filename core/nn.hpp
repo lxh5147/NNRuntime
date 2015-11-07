@@ -130,7 +130,8 @@ namespace nn {
             const size_t m_col;
     };
 
-    //Defines A*x implementation with unrolled for loop
+    //Defines A*x implementation with unrolled for loop, refer to:http://simulationcorner.net/index.php?page=fastmatrixvector
+    //This is the function uses 99% of the CPU. Try to optimize it by CPU specific instructions or special devices, such as GPU
     template <class T>
     class MatrixVectoryMultiplier{
         public:
