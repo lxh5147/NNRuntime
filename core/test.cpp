@@ -427,9 +427,10 @@ void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, siz
     #endif
 }
 
+template<template<class> class MVM>
 void perfTestWithRealModel(){
     //[ 411 8286 4659 ][ 4 14 8 ][ 64 34 869 ][ 56 29 59 ][ 131 204 59 ][ 226 529 508 ][ 9 6 14 ][ 2 ]
-    auto pModel=MLPModelFactory<float>::load("zoe_random_nbow-81.model.bin");
+    auto pModel=MLPModelFactory<float>::load<EmbeddingWithRawValues,MVM>("zoe_random_nbow-81.model.bin");
     vector<vector<size_t>> idsInputs={{411,8286,4659},{4,14,8},{64,34,869},{56,29,59},{131,204,59},{226,529,508},{9,6,14},{2}};
     auto predictionTimes=1000;
     #ifdef PERF
@@ -476,6 +477,7 @@ void perfTest(){
     string modelFile="model.faked.bin";
     //perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
     perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
+    perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
 }
 
 int main( int argc, const char* argv[] )
@@ -488,12 +490,14 @@ int main( int argc, const char* argv[] )
         perfTest();
     }
     if(option=="perfReal"){
-        perfTestWithRealModel();
+        perfTestWithRealModel<MatrixVectoryMultiplier>();
+        perfTestWithRealModel<MatrixVectoryMultiplierWithUnrolledLoop>();
     }
     else if(option=="all"){
         unitTest();
         perfTest();
-        perfTestWithRealModel();
+        perfTestWithRealModel<MatrixVectoryMultiplier>();
+        perfTestWithRealModel<MatrixVectoryMultiplierWithUnrolledLoop>();
     } else{
         //default: do unit test
         unitTest();
