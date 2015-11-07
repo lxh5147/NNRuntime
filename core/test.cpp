@@ -50,12 +50,15 @@ void vectorAggregateTest(){
 
 template<template<class> class MVM>
 void matrixMultiplyTest(){
-    Matrix<float> m(make_shared_ptr(new float[2*3]{1,2,3,4,5,6}),2,3);
+    Matrix<float> m(make_shared_ptr(new float[5*3]{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}),5,3);
     Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
     auto r=multiply<float,MVM>(m,v);
-    ASSERT(r.size() == 2, "r");
+    ASSERT(r.size() == 5, "r");
     ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
     ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
+    ASSERT(equals(r.data().get()[2] , 7*0.1+8*0.2+9*0.3), "r[2]");
+    ASSERT(equals(r.data().get()[3] , 10*0.1+11*0.2+12*0.3), "r[3]");
+    ASSERT(equals(r.data().get()[4] , 13*0.1+14*0.2+15*0.3), "r[4]");
 }
 
 void activationFunctionTest(){
@@ -452,7 +455,6 @@ void unitTest(){
     vectorApplyTest();
     vectorAggregateTest();
     matrixMultiplyTest<MatrixVectoryMultiplier>();
-    matrixMultiplyTest<MatrixVectoryMultiplierWithUnrolledLoop>();
     activationFunctionTest();
     poolingTest();
     hiddenLayerTest();
@@ -491,13 +493,11 @@ int main( int argc, const char* argv[] )
     }
     if(option=="perfReal"){
         perfTestWithRealModel<MatrixVectoryMultiplier>();
-        perfTestWithRealModel<MatrixVectoryMultiplierWithUnrolledLoop>();
     }
     else if(option=="all"){
         unitTest();
         perfTest();
         perfTestWithRealModel<MatrixVectoryMultiplier>();
-        perfTestWithRealModel<MatrixVectoryMultiplierWithUnrolledLoop>();
     } else{
         //default: do unit test
         unitTest();

@@ -130,7 +130,7 @@ namespace nn {
             const size_t m_col;
     };
 
-    //Defines A*x implementation
+    //Defines A*x implementation with unrolled for loop
     template <class T>
     class MatrixVectoryMultiplier{
         public:
@@ -140,44 +140,20 @@ namespace nn {
                 ASSERT(y,"y");
                 ASSERT(row>0,"row");
                 ASSERT(col>0,"col");
-                const T* a=A;
-                const T* _x;
-                for(size_t i=0;i<row;++i){
-                    _x=x;
-                    *y=0;
-                    for(size_t j=0;j<col;++j){
-                        *y+=(*_x++)*(*a++);
-                    }
-                    ++y;
-                }
-            }
-    };
-
-    //Defines A*x implementation with unrolled for loop
-    template <class T>
-    class MatrixVectoryMultiplierWithUnrolledLoop{
-        public:
-            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
-                ASSERT(A,"A");
-                ASSERT(x,"x");
-                ASSERT(y,"y");
-                ASSERT(row>0,"row");
-                ASSERT(col>0,"col");
                 const T* a1=A;
                 const T* _x;
-                if(row%2==1){
+                T y1;
+                if(row%4==1){
                     _x=x;
-                    *y=0;
+                    y1=0;
                     for(size_t j=0;j<col;++j){
-                        *y+=(*_x++)*(*a1++);
+                        y1+=(*_x++)*(*a1++);
                     }
-                    ++y;
+                    *y++=y1;
                 }
-                //next row
                 const T* a2=a1+col;
-                T y1,y2;
-                //process two rows per loop
-                for(size_t i=0;i<row/2;++i){
+                T y2;
+                if(row%4==2){
                     _x=x;
                     y1=0;
                     y2=0;
@@ -186,12 +162,55 @@ namespace nn {
                         y2+=(*_x)*(*a2++);
                         ++_x;
                     }
-                    *y=y1;
-                    ++y;
-                    *y=y2;
-                    ++y;
+                    *y++=y1;
+                    *y++=y2;
                     a1+=col;
                     a2+=col;
+                }
+                const T* a3=a2+col;
+                T y3;
+                if(row%4==3){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    y3=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        y3+=(*_x)*(*a3++);
+                        ++_x;
+                    }
+                    *y++=y1;
+                    *y++=y2;
+                    *y++=y3;
+                    a1+=2*col;
+                    a2+=2*col;
+                    a3+=2*col;
+                }
+                const T* a4=a3+col;
+                T y4;
+                //process 4 rows per loop
+                for(size_t i=0;i<row/4;++i){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    y3=0;
+                    y4=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        y3+=(*_x)*(*a3++);
+                        y4+=(*_x)*(*a4++);
+                        ++_x;
+                    }
+                    *y++=y1;
+                    *y++=y2;
+                    *y++=y3;
+                    *y++=y4;
+                    a1+=3*col;
+                    a2+=3*col;
+                    a3+=3*col;
+                    a4+=3*col;
                 }
             }
     };
