@@ -763,7 +763,7 @@ namespace nn {
     template<class T> using EmbeddingWith16BitsQuantizedValues = EmbeddingWithQuantizedValues<T,unsigned short>;
 
     //Defines MLP model factory.
-    template<class T>
+    template<class T, template<class> class E=EmbeddingWithRawValues>
     class MLPModelFactory {
         public:
             static void save(const string& modelPath, const vector<shared_ptr<InputInfo<T>>>& inputsInfo, const vector<shared_ptr<Matrix<T>>>& weights, const vector<shared_ptr<Vector<T>>>& biasVectors, const vector<size_t> activationFunctionIds){
@@ -772,14 +772,14 @@ namespace nn {
                 saveInputsInfo(os,inputsInfo);
                 saveHiddenLayers(os,weights,biasVectors,activationFunctionIds);
             }
-            static shared_ptr<MLPModel<T>> load(const string& modelPath,bool quantizeEmbedding=false, bool normalizeOutputWithSoftmax=true){
+            static shared_ptr<MLPModel<T>> load(const string& modelPath, bool normalizeOutputWithSoftmax=true){
                 vector<shared_ptr<InputInfo<T>>> inputsInfo;
                 vector<shared_ptr<Matrix<T>>> weights;
                 vector<shared_ptr<Vector<T>>> biasVectors;
                 vector<size_t> activationFunctionIds;
                 ifstream is(modelPath,ios::binary);
                 ASSERT(is.is_open(),"is");
-                loadInputsInfo(is,inputsInfo,quantizeEmbedding);
+                loadInputsInfo(is,inputsInfo);
                 loadHiddenLayers(is,weights,biasVectors,activationFunctionIds);
                 is.close();
                 return make_shared_ptr(new MLPModel<T>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax));
@@ -839,7 +839,7 @@ namespace nn {
                 os.write(reinterpret_cast<const char*>(buffer),sizeof(T)*size);
                 ASSERT(os,"os");
             }
-            static void loadInputsInfo(istream& is, vector<shared_ptr<InputInfo<T>>>& inputsInfo, bool quantizeEmbedding){
+            static void loadInputsInfo(istream& is, vector<shared_ptr<InputInfo<T>>>& inputsInfo){
                 size_t total=0;
                 load(is,total);
                 int inputType;
@@ -848,11 +848,7 @@ namespace nn {
                 shared_ptr<Embedding<T>> pEmbedding;
                 for(size_t i=0;i<total;++i){
                     load(is,inputType);
-                    if(quantizeEmbedding){
-                        pEmbedding=loadEmbedding<EmbeddingWith16BitsQuantizedValues<T>>(is);
-                    }else{
-                        pEmbedding=loadEmbedding<EmbeddingWithRawValues<T>>(is);
-                    }
+                    pEmbedding=loadEmbedding(is);
                     ASSERT(pEmbedding,"pEmbedding");
                     load(is,contextLength);
                     load(is,poolingId);
@@ -892,7 +888,6 @@ namespace nn {
                 load(is,buffer,size);
                 return make_shared_ptr(new Matrix<T>(shared_ptr<T>(buffer),row,col));
             }
-            template<class E>
             static shared_ptr<Embedding<T>> loadEmbedding(istream& is){
                 //singleton global embedding cache implemented by a local static variable
                 static Cache<Embedding<T>> cache;
@@ -907,7 +902,7 @@ namespace nn {
                     auto buffer=make_shared_ptr(new T[size]);
                     load(is,buffer.get(),size);
                     Matrix<T> matrix(buffer,row,col);
-                    pEmbedding=E::create(matrix);
+                    pEmbedding=E<T>::create(matrix);
                     cache.put(md5,pEmbedding);
                 }else{
                     is.ignore(size*sizeof(T));

@@ -14,6 +14,7 @@ using namespace nn;
 
 typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
 typedef MLPModelFactory<TYPE_NN_PARAMETER> TYPE_MLPModelFactory;
+typedef MLPModelFactory<TYPE_NN_PARAMETER,EmbeddingWith16BitsQuantizedValues> TYPE_MLPModelWith16BitsQuantizedEmbeddingFactory;
 //Loaded models.
 vector<shared_ptr<TYPE_MLPModel>> models;
 //Lock associated with the models
@@ -23,7 +24,7 @@ const size_t HANDLE_INVALID=0;
 
 size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWithSoftmax){
     ASSERT(modelPath,"modelPath");
-    decltype(TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax)) pModel=nullptr;
+    shared_ptr<TYPE_MLPModel> pModel=nullptr;
     try{
         #ifdef DEBUG
         cout<<"DEBUG\tload model with modelPath:"<<modelPath<<",quantizeEmbedding:"<<quantizeEmbedding<<",normalizeOutputWithSoftmax:"<<normalizeOutputWithSoftmax<<endl;
@@ -31,7 +32,7 @@ size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWit
         #ifdef PERF
         auto wctstart=CLOCK::now();
         #endif
-        pModel=TYPE_MLPModelFactory::load(modelPath,quantizeEmbedding,normalizeOutputWithSoftmax);
+        pModel=quantizeEmbedding?TYPE_MLPModelWith16BitsQuantizedEmbeddingFactory::load(modelPath,normalizeOutputWithSoftmax):TYPE_MLPModelFactory::load(modelPath,normalizeOutputWithSoftmax);
         #ifdef PERF
         auto wctduration = (CLOCK::now()-wctstart);
         cout << "PERF\tload finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
