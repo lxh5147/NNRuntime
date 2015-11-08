@@ -165,57 +165,11 @@ namespace nn {
                 ASSERT(y,"y");
                 ASSERT(row>0,"row");
                 ASSERT(col>0,"col");
-                const T* a1=A;
-                const T* _x;
-                T y1;
-                if(row%4==1){
-                    _x=x;
-                    y1=0;
-                    for(size_t j=0;j<col;++j){
-                        y1+=(*_x++)*(*a1++);
-                    }
-                    *y++=y1;
-                }
-                const T* a2=a1+col;
-                T y2;
-                if(row%4==2){
-                    _x=x;
-                    y1=0;
-                    y2=0;
-                    for(size_t j=0;j<col;++j){
-                        y1+=(*_x)*(*a1++);
-                        y2+=(*_x)*(*a2++);
-                        ++_x;
-                    }
-                    *y++=y1;
-                    *y++=y2;
-                    a1+=col;
-                    a2+=col;
-                }
-                const T* a3=a2+col;
-                T y3;
-                if(row%4==3){
-                    _x=x;
-                    y1=0;
-                    y2=0;
-                    y3=0;
-                    for(size_t j=0;j<col;++j){
-                        y1+=(*_x)*(*a1++);
-                        y2+=(*_x)*(*a2++);
-                        y3+=(*_x)*(*a3++);
-                        ++_x;
-                    }
-                    *y++=y1;
-                    *y++=y2;
-                    *y++=y3;
-                    a1+=2*col;
-                    a2+=2*col;
-                    a3+=2*col;
-                }
-                const T* a4=a3+col;
-                T y4;
+                const T* a1=A, *a2=A+col,*a3=A+2*col,*a4=A+3*col,*_x;
+                T y1,y2,y3,y4;
+                size_t i=0;
                 //process 4 rows per loop
-                for(size_t i=0;i<row/4;++i){
+                for(;i+3<row;i+=4){
                     _x=x;
                     y1=0;
                     y2=0;
@@ -236,6 +190,14 @@ namespace nn {
                     a2+=3*col;
                     a3+=3*col;
                     a4+=3*col;
+                }
+                for(;i<row;++i){
+                    _x=x;
+                    y1=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x++)*(*a1++);
+                    }
+                    *y++=y1;
                 }
             }
     };
