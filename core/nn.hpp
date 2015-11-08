@@ -171,52 +171,29 @@ namespace nn {
                 T y1,y2,y3,y4;
                 size_t i=0,j;
                 //process 4 rows per loop
-                for(;i+3<row;i+=4){
-                    _x=x;
-                    y1=0;
-                    y2=0;
-                    y3=0;
-                    y4=0;
-                    j=0;
-                    for(;j+3<col;j+=4){
+                for(;i+3<row;i+=4,y+=4,a1+=3*col,a2+=3*col,a3+=3*col,a4+=3*col){
+                    for(_x=x,y1=0,y2=0,y3=0,y4=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4,a4+=4){
                         y1+=DOT4(_x,a1);
                         y2+=DOT4(_x,a2);
                         y3+=DOT4(_x,a3);
                         y4+=DOT4(_x,a4);
-                        _x+=4;
-                        a1+=4;
-                        a2+=4;
-                        a3+=4;
-                        a4+=4;
                     }
-                    for(;j<col;++j){
+                    for(;j<col;++j,++_x,++a1,++a2,++a3,++a4){
                         y1+=DOT(_x,a1);
                         y2+=DOT(_x,a2);
                         y3+=DOT(_x,a3);
                         y4+=DOT(_x,a4);
-                        ++_x;
-                        ++a1;
-                        ++a2;
-                        ++a3;
-                        ++a4;
                     }
-                    *y++=y1;
-                    *y++=y2;
-                    *y++=y3;
-                    *y++=y4;
-                    a1+=3*col;
-                    a2+=3*col;
-                    a3+=3*col;
-                    a4+=3*col;
+                    y[0]=y1,y[1]=y2,y[2]=y3,y[3]=y4;
                 }
-                for(;i<row;++i){
-                    _x=x;
-                    y1=0;
-                    j=0;
-                    for(;j<col;++j){
-                        y1+=(*_x++)*(*a1++);
+                for(;i<row;++i,++y){
+                    for(_x=x,y1=0,j=0;j+3<col;j+=4,_x+=4,a1+=4){
+                        y1+=DOT4(_x,a1);
                     }
-                    *y++=y1;
+                    for(;j<col;++j,++_x,++a1){
+                        y1+=DOT(_x,a1);
+                    }
+                    *y=y1;
                 }
             }
     };
