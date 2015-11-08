@@ -130,6 +130,30 @@ namespace nn {
             const size_t m_col;
     };
 
+    //Defines A*x implementation
+    template <class T>
+    class MatrixVectoryMultiplierBaseline{
+        public:
+            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                const T* a=A;
+                const T* _x;
+                T y1;
+                for(size_t i=0;i<row;++i){
+                    _x=x;
+                    y1=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x++)*(*a++);
+                    }
+                    *y++=y1;
+                }
+            }
+    };
+
     //Defines A*x implementation with unrolled for loop, refer to:http://simulationcorner.net/index.php?page=fastmatrixvector
     //This is the function uses 99% of the CPU. Try to optimize it by CPU specific instructions or special devices, such as GPU
     template <class T>

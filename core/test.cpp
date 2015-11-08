@@ -453,7 +453,8 @@ void unitTest(){
     vectorDivideTest();
     vectorMaxTest();
     vectorApplyTest();
-    vectorAggregateTest();
+    vectorAggregateTest();    
+    matrixMultiplyTest<MatrixVectoryMultiplierBaseline>();
     matrixMultiplyTest<MatrixVectoryMultiplier>();
     activationFunctionTest();
     poolingTest();
@@ -492,11 +493,13 @@ int main( int argc, const char* argv[] )
         perfTest();
     }
     if(option=="perfReal"){
-        perfTestWithRealModel<MatrixVectoryMultiplier>();
+        perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
+        perfTestWithRealModel<MatrixVectoryMultiplier>();        
     }
     else if(option=="all"){
         unitTest();
         perfTest();
+        perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
         perfTestWithRealModel<MatrixVectoryMultiplier>();
     } else{
         //default: do unit test
