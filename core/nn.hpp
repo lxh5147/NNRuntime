@@ -154,6 +154,8 @@ namespace nn {
             }
     };
 
+    #define DOT4(x,y)  (x[0]*y[0]+x[1]*y[1]+x[2]*y[2]+x[3]*y[3])
+    #define DOT(x,y)  ((*x)*(*y))
     //Defines A*x implementation with unrolled for loop, refer to:http://simulationcorner.net/index.php?page=fastmatrixvector
     //This is the function uses 99% of the CPU. Try to optimize it by CPU specific instructions or special devices, such as GPU
     template <class T>
@@ -167,7 +169,7 @@ namespace nn {
                 ASSERT(col>0,"col");
                 const T* a1=A, *a2=A+col,*a3=A+2*col,*a4=A+3*col,*_x;
                 T y1,y2,y3,y4;
-                size_t i=0;
+                size_t i=0,j;
                 //process 4 rows per loop
                 for(;i+3<row;i+=4){
                     _x=x;
@@ -175,12 +177,28 @@ namespace nn {
                     y2=0;
                     y3=0;
                     y4=0;
-                    for(size_t j=0;j<col;++j){
-                        y1+=(*_x)*(*a1++);
-                        y2+=(*_x)*(*a2++);
-                        y3+=(*_x)*(*a3++);
-                        y4+=(*_x)*(*a4++);
+                    j=0;
+                    for(;j+3<col;j+=4){
+                        y1+=DOT4(_x,a1);
+                        y2+=DOT4(_x,a2);
+                        y3+=DOT4(_x,a3);
+                        y4+=DOT4(_x,a4);
+                        _x+=4;
+                        a1+=4;
+                        a2+=4;
+                        a3+=4;
+                        a4+=4;
+                    }
+                    for(;j<col;++j){
+                        y1+=DOT(_x,a1);
+                        y2+=DOT(_x,a2);
+                        y3+=DOT(_x,a3);
+                        y4+=DOT(_x,a4);
                         ++_x;
+                        ++a1;
+                        ++a2;
+                        ++a3;
+                        ++a4;
                     }
                     *y++=y1;
                     *y++=y2;
@@ -194,7 +212,8 @@ namespace nn {
                 for(;i<row;++i){
                     _x=x;
                     y1=0;
-                    for(size_t j=0;j<col;++j){
+                    j=0;
+                    for(;j<col;++j){
                         y1+=(*_x++)*(*a1++);
                     }
                     *y++=y1;
