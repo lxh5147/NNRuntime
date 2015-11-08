@@ -17,7 +17,7 @@ perf_test_option=perf
 
 #cpu profile with gprof
 echo "run gprof cpu profiling"
-g++ -std=c++11 -g -pg -o ${prog_to_profile}_gprof test.cpp
+g++ -std=c++11 -O4 -mtune=native -g -pg -o ${prog_to_profile}_gprof test.cpp
 ./${prog_to_profile}_gprof $perf_test_option
 gprof -b ${prog_to_profile}_gprof gmon.out > cpu_analysis.txt 
 
