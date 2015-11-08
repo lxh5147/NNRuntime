@@ -448,6 +448,95 @@ void perfTestWithRealModel(){
     #endif
 }
 
+//Defines A*x implementation
+template <class T>
+class MatrixVectoryMultiplierBaseline{
+    public:
+        static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+            ASSERT(A,"A");
+            ASSERT(x,"x");
+            ASSERT(y,"y");
+            ASSERT(row>0,"row");
+            ASSERT(col>0,"col");
+            const T* a=A;
+            const T* _x;
+            T y1;
+            for(size_t i=0;i<row;++i){
+                _x=x;
+                y1=0;
+                for(size_t j=0;j<col;++j){
+                    y1+=(*_x++)*(*a++);
+                }
+                *y++=y1;
+            }
+        }
+};
+
+#define DOT4(x,y)  (x[0]*y[0]+x[1]*y[1]+x[2]*y[2]+x[3]*y[3])
+#define DOT(x,y)  ((*x)*(*y))
+
+template <class T>
+class MatrixVectoryMultiplierMoreUnRolling{
+    public:
+        static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
+            ASSERT(A,"A");
+            ASSERT(x,"x");
+            ASSERT(y,"y");
+            ASSERT(row>0,"row");
+            ASSERT(col>0,"col");
+            const T* a1=A, *a2=A+col,*a3=A+2*col,*a4=A+3*col,*_x;
+            T y1,y2,y3,y4;
+            size_t i=0,j;
+            //process 4 rows per loop
+            for(;i+3<row;i+=4,y+=4,a1+=3*col,a2+=3*col,a3+=3*col,a4+=3*col){
+                for(_x=x,y1=0,y2=0,y3=0,y4=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4,a4+=4){
+                    y1+=DOT4(_x,a1);
+                    y2+=DOT4(_x,a2);
+                    y3+=DOT4(_x,a3);
+                    y4+=DOT4(_x,a4);
+                }
+                for(;j<col;++j,++_x,++a1,++a2,++a3,++a4){
+                    y1+=DOT(_x,a1);
+                    y2+=DOT(_x,a2);
+                    y3+=DOT(_x,a3);
+                    y4+=DOT(_x,a4);
+                }
+                y[0]=y1,y[1]=y2,y[2]=y3,y[3]=y4;
+            }
+            if(row-i==3){
+                for(_x=x,y1=0,y2=0,y3=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4){
+                    y1+=DOT4(_x,a1);
+                    y2+=DOT4(_x,a2);
+                    y3+=DOT4(_x,a3);
+                }
+                for(;j<col;++j,++_x,++a1,++a2,++a3){
+                    y1+=DOT(_x,a1);
+                    y2+=DOT(_x,a2);
+                    y3+=DOT(_x,a3);
+                }
+                y[0]=y1,y[1]=y2,y[2]=y3;
+            }else if(row-i==2){
+                for(_x=x,y1=0,y2=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4){
+                    y1+=DOT4(_x,a1);
+                    y2+=DOT4(_x,a2);
+                }
+                for(;j<col;++j,++_x,++a1,++a2){
+                    y1+=DOT(_x,a1);
+                    y2+=DOT(_x,a2);
+                }
+                y[0]=y1,y[1]=y2;
+            }else if(row-i==1){
+                for(_x=x,y1=0,j=0;j+3<col;j+=4,_x+=4,a1+=4){
+                    y1+=DOT4(_x,a1);
+                }
+                for(;j<col;++j,++_x,++a1){
+                    y1+=DOT(_x,a1);
+                }
+                y[0]=y1;
+            }
+        }
+};
+
 void unitTest(){
     vectorPlusTest();
     vectorDivideTest();
@@ -456,6 +545,7 @@ void unitTest(){
     vectorAggregateTest();    
     matrixMultiplyTest<MatrixVectoryMultiplierBaseline>();
     matrixMultiplyTest<MatrixVectoryMultiplier>();
+    matrixMultiplyTest<MatrixVectoryMultiplierMoreUnRolling>();
     activationFunctionTest();
     poolingTest();
     hiddenLayerTest();
@@ -494,13 +584,15 @@ int main( int argc, const char* argv[] )
     }
     if(option=="perfReal"){
         perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
-        perfTestWithRealModel<MatrixVectoryMultiplier>();        
+        perfTestWithRealModel<MatrixVectoryMultiplier>();
+        perfTestWithRealModel<MatrixVectoryMultiplierMoreUnRolling>();
     }
     else if(option=="all"){
         unitTest();
         perfTest();
         perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
         perfTestWithRealModel<MatrixVectoryMultiplier>();
+        perfTestWithRealModel<MatrixVectoryMultiplierMoreUnRolling>();
     } else{
         //default: do unit test
         unitTest();

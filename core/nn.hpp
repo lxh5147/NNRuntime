@@ -130,32 +130,6 @@ namespace nn {
             const size_t m_col;
     };
 
-    //Defines A*x implementation
-    template <class T>
-    class MatrixVectoryMultiplierBaseline{
-        public:
-            static inline void multiply(const T* A, const T* x, T* y, const size_t row, const size_t col){
-                ASSERT(A,"A");
-                ASSERT(x,"x");
-                ASSERT(y,"y");
-                ASSERT(row>0,"row");
-                ASSERT(col>0,"col");
-                const T* a=A;
-                const T* _x;
-                T y1;
-                for(size_t i=0;i<row;++i){
-                    _x=x;
-                    y1=0;
-                    for(size_t j=0;j<col;++j){
-                        y1+=(*_x++)*(*a++);
-                    }
-                    *y++=y1;
-                }
-            }
-    };
-
-    #define DOT4(x,y)  (x[0]*y[0]+x[1]*y[1]+x[2]*y[2]+x[3]*y[3])
-    #define DOT(x,y)  ((*x)*(*y))
     //Defines A*x implementation with unrolled for loop, refer to:http://simulationcorner.net/index.php?page=fastmatrixvector
     //This is the function uses 99% of the CPU. Try to optimize it by CPU specific instructions or special devices, such as GPU
     template <class T>
@@ -167,55 +141,77 @@ namespace nn {
                 ASSERT(y,"y");
                 ASSERT(row>0,"row");
                 ASSERT(col>0,"col");
-                const T* a1=A, *a2=A+col,*a3=A+2*col,*a4=A+3*col,*_x;
-                T y1,y2,y3,y4;
-                size_t i=0,j;
-                //process 4 rows per loop
-                for(;i+3<row;i+=4,y+=4,a1+=3*col,a2+=3*col,a3+=3*col,a4+=3*col){
-                    for(_x=x,y1=0,y2=0,y3=0,y4=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4,a4+=4){
-                        y1+=DOT4(_x,a1);
-                        y2+=DOT4(_x,a2);
-                        y3+=DOT4(_x,a3);
-                        y4+=DOT4(_x,a4);
+                const T* a1=A;
+                const T* _x;
+                T y1;
+                if(row%4==1){
+                    _x=x;
+                    y1=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x++)*(*a1++);
                     }
-                    for(;j<col;++j,++_x,++a1,++a2,++a3,++a4){
-                        y1+=DOT(_x,a1);
-                        y2+=DOT(_x,a2);
-                        y3+=DOT(_x,a3);
-                        y4+=DOT(_x,a4);
-                    }
-                    y[0]=y1,y[1]=y2,y[2]=y3,y[3]=y4;
+                    *y++=y1;
                 }
-                if(row-i==3){
-                    for(_x=x,y1=0,y2=0,y3=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4){
-                        y1+=DOT4(_x,a1);
-                        y2+=DOT4(_x,a2);
-                        y3+=DOT4(_x,a3);
+                const T* a2=a1+col;
+                T y2;
+                if(row%4==2){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        ++_x;
                     }
-                    for(;j<col;++j,++_x,++a1,++a2,++a3){
-                        y1+=DOT(_x,a1);
-                        y2+=DOT(_x,a2);
-                        y3+=DOT(_x,a3);
+                    *y++=y1;
+                    *y++=y2;
+                    a1+=col;
+                    a2+=col;
+                }
+                const T* a3=a2+col;
+                T y3;
+                if(row%4==3){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    y3=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        y3+=(*_x)*(*a3++);
+                        ++_x;
                     }
-                    y[0]=y1,y[1]=y2,y[2]=y3;
-                }else if(row-i==2){
-                    for(_x=x,y1=0,y2=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4){
-                        y1+=DOT4(_x,a1);
-                        y2+=DOT4(_x,a2);
+                    *y++=y1;
+                    *y++=y2;
+                    *y++=y3;
+                    a1+=2*col;
+                    a2+=2*col;
+                    a3+=2*col;
+                }
+                const T* a4=a3+col;
+                T y4;
+                //process 4 rows per loop
+                for(size_t i=0;i<row/4;++i){
+                    _x=x;
+                    y1=0;
+                    y2=0;
+                    y3=0;
+                    y4=0;
+                    for(size_t j=0;j<col;++j){
+                        y1+=(*_x)*(*a1++);
+                        y2+=(*_x)*(*a2++);
+                        y3+=(*_x)*(*a3++);
+                        y4+=(*_x)*(*a4++);
+                        ++_x;
                     }
-                    for(;j<col;++j,++_x,++a1,++a2){
-                        y1+=DOT(_x,a1);
-                        y2+=DOT(_x,a2);
-                    }
-                    y[0]=y1,y[1]=y2;
-                }else if(row-i==1){
-                    for(_x=x,y1=0,j=0;j+3<col;j+=4,_x+=4,a1+=4){
-                        y1+=DOT4(_x,a1);
-                    }
-                    for(;j<col;++j,++_x,++a1){
-                        y1+=DOT(_x,a1);
-                    }
-                    y[0]=y1;
+                    *y++=y1;
+                    *y++=y2;
+                    *y++=y3;
+                    *y++=y4;
+                    a1+=3*col;
+                    a2+=3*col;
+                    a3+=3*col;
+                    a4+=3*col;
                 }
             }
     };
