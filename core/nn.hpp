@@ -186,14 +186,36 @@ namespace nn {
                     }
                     y[0]=y1,y[1]=y2,y[2]=y3,y[3]=y4;
                 }
-                for(;i<row;++i,++y){
+                if(row-i==3){
+                    for(_x=x,y1=0,y2=0,y3=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4,a3+=4){
+                        y1+=DOT4(_x,a1);
+                        y2+=DOT4(_x,a2);
+                        y3+=DOT4(_x,a3);
+                    }
+                    for(;j<col;++j,++_x,++a1,++a2,++a3){
+                        y1+=DOT(_x,a1);
+                        y2+=DOT(_x,a2);
+                        y3+=DOT(_x,a3);
+                    }
+                    y[0]=y1,y[1]=y2,y[2]=y3;
+                }else if(row-i==2){
+                    for(_x=x,y1=0,y2=0,j=0;j+3<col;j+=4,_x+=4,a1+=4,a2+=4){
+                        y1+=DOT4(_x,a1);
+                        y2+=DOT4(_x,a2);
+                    }
+                    for(;j<col;++j,++_x,++a1,++a2){
+                        y1+=DOT(_x,a1);
+                        y2+=DOT(_x,a2);
+                    }
+                    y[0]=y1,y[1]=y2;
+                }else if(row-i==1){
                     for(_x=x,y1=0,j=0;j+3<col;j+=4,_x+=4,a1+=4){
                         y1+=DOT4(_x,a1);
                     }
                     for(;j<col;++j,++_x,++a1){
                         y1+=DOT(_x,a1);
                     }
-                    *y=y1;
+                    y[0]=y1;
                 }
             }
     };
