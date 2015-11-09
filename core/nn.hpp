@@ -21,7 +21,7 @@ This file defines the runtime of a neural network.
 #include "quantization.hpp"
 
 #ifdef _MVM_GPU_
-#include "gpu/mvm.h"
+#include "mvm.h"
 #endif
 
 namespace nn {
