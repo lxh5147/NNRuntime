@@ -1,0 +1,6 @@
+#define DECL_MVM_GPU_FUNC(T) extern "C" inline void mvm_gpu(const ##T*, const ##T* , ##T* , const size_t, const size_t)
+#define CALL_MVM_GPU_FUNC(A,x,y,row,col) (mvm_gpu(A,x,y,row,col))
+
+DECL_MVM_GPU_FUNC(float);
+DECL_MVM_GPU_FUNC(double);
+

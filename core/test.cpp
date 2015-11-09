@@ -573,7 +573,7 @@ void perfTest(){
     perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
 }
 
-int main( int argc, const char* argv[] )
+int main( int argc, const char* argv[])
 {
     string option;
     if(argc==2){
