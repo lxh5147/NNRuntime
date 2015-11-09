@@ -1,6 +1,6 @@
-#include <assert.h>
 #include "mvm.h"
 #include "mvm.cu"
+#include <cassert>
 
 //Defines helper function to compare two values.
 template<typename T, typename U>
