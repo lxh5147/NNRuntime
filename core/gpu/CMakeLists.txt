@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8.9)
 
+project(nn_core_gpu)
+
+#to kill the error: gcc 4.7 not supported
 set(CUDA_HOST_COMPILER /usr/bin/gcc)
 find_package(CUDA REQUIRED)
 

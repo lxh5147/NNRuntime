@@ -20,6 +20,10 @@ This file defines the runtime of a neural network.
 #include "common.hpp"
 #include "quantization.hpp"
 
+#ifdef _MVM_GPU_
+#include "gpu/mvm.h"
+#endif
+
 namespace nn {
     using namespace std;
     using namespace common;
@@ -130,6 +134,7 @@ namespace nn {
             const size_t m_col;
     };
 
+
     //Defines A*x implementation with unrolled for loop, refer to:http://simulationcorner.net/index.php?page=fastmatrixvector
     //This is the function uses 99% of the CPU. Try to optimize it by CPU specific instructions or special devices, such as GPU
     template <class T>
@@ -215,6 +220,35 @@ namespace nn {
                 }
             }
     };
+
+    //If GPU support is enabled
+    #ifdef _MVM_GPU_
+    template <>
+    class MatrixVectoryMultiplier<float>{
+        public:
+            static inline void multiply(const float* A, const float* x, double* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                CALL_MVM_GPU_FUNC(A,x,y,row,col);
+            }
+    };
+
+    template <>
+    class MatrixVectoryMultiplier<double>{
+        public:
+            static inline void multiply(const double* A, const double* x, double* y, const size_t row, const size_t col){
+                ASSERT(A,"A");
+                ASSERT(x,"x");
+                ASSERT(y,"y");
+                ASSERT(row>0,"row");
+                ASSERT(col>0,"col");
+                CALL_MVM_GPU_FUNC(A,x,y,row,col);
+            }
+    };
+    #endif
 
     //Defines helper function that returns the column vector of M*v. v.size must equals to the col of this matrix.
     template<class T,template<class> class MVM=MatrixVectoryMultiplier>

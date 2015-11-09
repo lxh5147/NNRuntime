@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.9)
 project(nn_runtime_jni)
 
 # Enable C++11
-set(CMAKE_CXX_FLAGS                "-Wall -std=c++11")
+set(CMAKE_CXX_FLAGS                "-Wall -std=c++11 -static-libstdc++")
 # Enable DEBUG and PERF macros for Debug version
 set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -DDEBUG -DPERF")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
@@ -25,13 +25,12 @@ set(CMAKE_JNI_TARGET TRUE)
 
 #include directories
 include_directories(../core)
+include_directories(.)
 include_directories(${JNI_INCLUDE_DIRS})
 
 swig_add_module(nn_runtime_jni java nn_runtime.i "nn_runtime.h" "nn_runtime.cpp")
 
 enable_testing()
-
-
 
 # Define test suites
 file(GLOB java_src nn_runtime_jni/*.java test.java)
@@ -48,3 +47,14 @@ add_test(NAME nn_runtime_test COMMAND ${nn_runtime_test_app} ${nn_runtime_jni_fo
 #jni test
 #enable assert key words with -ea option
 add_test(NAME nn_runtime_jni_test COMMAND ${Java_JAVA_EXECUTABLE} -ea -Djava.library.path=${nn_runtime_jni_folder} -jar ${jar_file} ${nn_runtime_jni_folder}/../core/model.bin)
+
+find_package(CUDA REQUIRED)
+if (CUDA_FOUND)
+        #compile gpu version
+        message("CUDA found, using device matrix vector multiplier!")
+        add_subdirectory(../core/gpu)
+        set_target_properties(nn_runtime_jni nn_runtime_test PROPERTIES COMPILE_DEFINITIONS "_MVM_GPU_")
+        target_link_libraries(nn_runtime_jni mvm_gpu)
+        target_link_libraries(nn_runtime_test mvm_gpu)
+endif()
+

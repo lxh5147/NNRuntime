@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.9)
 project(nn_tool)
 
 # Enable C++11
-set(CMAKE_CXX_FLAGS                "-Wall -std=c++11")
+set(CMAKE_CXX_FLAGS                "-Wall -std=c++11 -static-libstdc++")
 set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -DDEBUG -DPERF")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
