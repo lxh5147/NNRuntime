@@ -226,7 +226,7 @@ namespace nn {
     template <>
     class MatrixVectoryMultiplier<float>{
         public:
-            static inline void multiply(const float* A, const float* x, double* y, const size_t row, const size_t col){
+            static inline void multiply(const float* A, const float* x, float* y, const size_t row, const size_t col){
                 ASSERT(A,"A");
                 ASSERT(x,"x");
                 ASSERT(y,"y");
