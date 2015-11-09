@@ -10,10 +10,10 @@ set(CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 list(APPEND CUDA_NVCC_FLAGS --gpu-architecture sm_20)
+CUDA_INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Build static library
 CUDA_ADD_LIBRARY(mvm_gpu mvm.cu)
-
 
 # Test
 CUDA_ADD_EXECUTABLE(mvm_gpu_test test.cu)
