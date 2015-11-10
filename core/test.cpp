@@ -61,6 +61,18 @@ void matrixMultiplyTest(){
     ASSERT(equals(r.data().get()[4] , 13*0.1+14*0.2+15*0.3), "r[4]");
 }
 
+//To cover the special case that n%4=3
+template<template<class> class MVM>
+void matrixMultiplyEdgeTest(){
+    Matrix<float> m(make_shared_ptr(new float[3*3]{1,2,3,4,5,6,7,8,9}),3,3);
+    Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
+    auto r=multiply<float,MVM>(m,v);
+    ASSERT(r.size() == 3, "r");
+    ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
+    ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
+    ASSERT(equals(r.data().get()[2] , 7*0.1+8*0.2+9*0.3), "r[2]");
+}
+
 void activationFunctionTest(){
     auto func=ActivationFunctions<float>::get(ActivationFunctions<float>::TANH);
     auto input=0.23f;
@@ -546,6 +558,9 @@ void unitTest(){
     matrixMultiplyTest<MatrixVectoryMultiplierBaseline>();
     matrixMultiplyTest<MatrixVectoryMultiplier>();
     matrixMultiplyTest<MatrixVectoryMultiplierMoreUnRolling>();
+    matrixMultiplyEdgeTest<MatrixVectoryMultiplierBaseline>();
+    matrixMultiplyEdgeTest<MatrixVectoryMultiplier>();
+    matrixMultiplyEdgeTest<MatrixVectoryMultiplierMoreUnRolling>();
     activationFunctionTest();
     poolingTest();
     hiddenLayerTest();
