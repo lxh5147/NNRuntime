@@ -16,11 +16,11 @@ Q&A
     cd core
     ./nn_runtime_core_perf_test perfReal
 
- 2. How to run gpu based matrix vector multiplier
+2. How to run gpu based matrix vector multiplier
     #log on one host with GPU installed, and repeat the same process
     telnet gna-r01r05u01b02.nrg5.us.grid.nuance.com
 
- 3. How to run line coverage analysis and memory, cpu profiling for the core?
+3. How to run line coverage analysis and memory, cpu profiling for the core?
     cd core
     cmake .
     make

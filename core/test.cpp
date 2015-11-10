@@ -48,28 +48,28 @@ void vectorAggregateTest(){
     ASSERT(equals(result , 1.1f), "result");
 }
 
-template<template<class> class MVM>
+template<template<class> class MVM,typename T=float>
 void matrixMultiplyTest(){
-    Matrix<float> m(make_shared_ptr(new float[5*3]{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}),5,3);
-    Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
-    auto r=multiply<float,MVM>(m,v);
+    Matrix<T> m(make_shared_ptr(new T[5*3]{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}),5,3);
+    Vector<T> v(make_shared_ptr(new T[3]{0.1,0.2,0.3}),3);
+    auto r=multiply<T,MVM>(m,v);
     ASSERT(r.size() == 5, "r");
-    ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
-    ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
+    ASSERT(equals(r.data().get()[0] , 1.4), "r[0]");
+    ASSERT(equals(r.data().get()[1] , 3.2), "r[1]");
     ASSERT(equals(r.data().get()[2] , 7*0.1+8*0.2+9*0.3), "r[2]");
     ASSERT(equals(r.data().get()[3] , 10*0.1+11*0.2+12*0.3), "r[3]");
     ASSERT(equals(r.data().get()[4] , 13*0.1+14*0.2+15*0.3), "r[4]");
 }
 
 //To cover the special case that n%4=3
-template<template<class> class MVM>
+template<template<class> class MVM,typename T=float>
 void matrixMultiplyEdgeTest(){
-    Matrix<float> m(make_shared_ptr(new float[3*3]{1,2,3,4,5,6,7,8,9}),3,3);
-    Vector<float> v(make_shared_ptr(new float[3]{0.1,0.2,0.3}),3);
-    auto r=multiply<float,MVM>(m,v);
+    Matrix<T> m(make_shared_ptr(new T[3*3]{1,2,3,4,5,6,7,8,9}),3,3);
+    Vector<T> v(make_shared_ptr(new T[3]{0.1,0.2,0.3}),3);
+    auto r=multiply<T,MVM>(m,v);
     ASSERT(r.size() == 3, "r");
-    ASSERT(equals(r.data().get()[0] , 1.4f), "r[0]");
-    ASSERT(equals(r.data().get()[1] , 3.2f), "r[1]");
+    ASSERT(equals(r.data().get()[0] , 1.4), "r[0]");
+    ASSERT(equals(r.data().get()[1] , 3.2), "r[1]");
     ASSERT(equals(r.data().get()[2] , 7*0.1+8*0.2+9*0.3), "r[2]");
 }
 
@@ -398,18 +398,13 @@ shared_ptr<Matrix<T>> newMatrix(size_t row, size_t col){
     return make_shared_ptr(new Matrix<T>(make_shared_ptr(new T[row*col]),row,col));
 }
 
-void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords, size_t numberOfOther){
-    auto dimensionOfWordEmbedding=50;
-    auto dimensionOfOtherEmbedding=20;
+void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords, size_t numberOfOther,size_t dimensionOfWordEmbedding, size_t contextLength, size_t dimensionOfOtherEmbedding,size_t hiddenLayer0NumberOfOutputNodes, size_t hiddenLayer1NumberOfOutputNodes){
     auto wordEmbedding=newMatrix<float>(numberOfWords,dimensionOfWordEmbedding);
     generateRandomNumbers(wordEmbedding->data().get(),numberOfWords*dimensionOfWordEmbedding);
     auto otherEmbedding=newMatrix<float>(numberOfOther,dimensionOfOtherEmbedding);
     generateRandomNumbers(otherEmbedding->data().get(),numberOfOther*dimensionOfOtherEmbedding);
-    auto contextLength=1;
     auto inputsInfo={newInputInfo(EmbeddingWithRawValues<float>::create(*wordEmbedding),contextLength,Poolings<Vector<float>>::AVG),newInputInfo(EmbeddingWithRawValues<float>::create(*otherEmbedding))};
     //two hidden layers
-    auto hiddenLayer0NumberOfOutputNodes=60;
-    auto hiddenLayer1NumberOfOutputNodes=18;
     vector<shared_ptr<Matrix<float>>> weights={newMatrix<float>(hiddenLayer0NumberOfOutputNodes,(2*contextLength+1)*dimensionOfWordEmbedding+dimensionOfOtherEmbedding),newMatrix<float>(hiddenLayer1NumberOfOutputNodes,hiddenLayer0NumberOfOutputNodes)};
     vector<shared_ptr<Vector<float>>> biasVectors={newVector<float>(hiddenLayer0NumberOfOutputNodes),newVector<float>(hiddenLayer1NumberOfOutputNodes)};
     generateRandomNumbers(weights[0]->data().get(),hiddenLayer0NumberOfOutputNodes*((2*contextLength+1)*dimensionOfWordEmbedding+dimensionOfOtherEmbedding));
@@ -422,7 +417,6 @@ void perfTestWithBigFakedModelSetup(const string& modelFile,size_t numberOfWords
 }
 
 void perfTestWithBigFakedModel(const string& modelFile,size_t numberOfWords, size_t numberOfOther){ 
-    perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
     auto pModel=MLPModelFactory<float>::load(modelFile);
     auto predictionTimes=1000;
     auto sequenceLength=25;
@@ -582,9 +576,14 @@ void perfTest(){
     //1 million words
     auto numberOfWords=1000000;
     auto numberOfOther=1000;
+    auto dimensionOfWordEmbedding=50;
+    auto dimensionOfOtherEmbedding=20;
+    auto contextLength=1;
+    auto hiddenLayer0NumberOfOutputNodes=60;
+    auto hiddenLayer1NumberOfOutputNodes=18;
     string modelFile="model.faked.bin";
-    //perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther);
-    perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
+    //set up the model
+    perfTestWithBigFakedModelSetup(modelFile,numberOfWords,numberOfOther,dimensionOfWordEmbedding,contextLength,dimensionOfOtherEmbedding,hiddenLayer0NumberOfOutputNodes,hiddenLayer1NumberOfOutputNodes);
     perfTestWithBigFakedModel(modelFile,numberOfWords,numberOfOther);
 }
 

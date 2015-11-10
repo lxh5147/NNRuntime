@@ -15,7 +15,7 @@ This file defines common functions.
 namespace common{
     using namespace std;
 
-    //PERF related helpers
+    //PERF measurement helpers
     typedef chrono::high_resolution_clock CLOCK;
     #define microseconds(x) (std::chrono::duration_cast<chrono::microseconds>(wctduration).count())
 
@@ -28,7 +28,7 @@ namespace common{
                 exit(EXIT_FAILURE); \
             } \
         } while (false)
-        
+
     //Defines a helper function to create shared pointer by leveraging the type inference capability of templated static function.
     template<typename T>
     shared_ptr<T> make_shared_ptr(T* p){

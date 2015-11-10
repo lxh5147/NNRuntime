@@ -107,7 +107,7 @@ namespace nn {
     template<typename T>
     shared_ptr<Vector<T>> newVector(T* data, size_t size){
         ASSERT(data,"data");
-        return make_shared_ptr(new Vector<T>( make_shared_ptr(data),size));
+        return make_shared<Vector<T>>(make_shared_ptr(data),size);
     }
 
     //Defines a matrix of shape row*col.
@@ -267,7 +267,7 @@ namespace nn {
     template<typename T>
     shared_ptr<Matrix<T>> newMatrix(T* data, size_t row, size_t col){
         ASSERT(data,"data");
-        return make_shared_ptr(new Matrix<T>(make_shared_ptr(data),row,col));
+        return make_shared<Matrix<T>>(make_shared_ptr(data),row,col);
     }
 
     //Defines a layer of neural network.
@@ -751,13 +751,13 @@ namespace nn {
     //Defines a helper function to create a shared pointer of sequence input.
     template<typename T>
     shared_ptr<Input<T>> newInput(const vector<size_t>& idSequence, size_t contextLength, shared_ptr<Embedding<T>> embedding, int poolingId){
-        return make_shared_ptr(new SequenceInput<T>(idSequence,contextLength,embedding,Poolings<Vector<T>>::get(poolingId)));
+        return make_shared<SequenceInput<T>>(idSequence,contextLength,embedding,Poolings<Vector<T>>::get(poolingId));
     }
 
     //Defines a helper function to create a shared pointer of non-sequence input.
     template<typename T>
     shared_ptr<Input<T>> newInput(size_t id, shared_ptr<Embedding<T>> embedding){
-        return make_shared_ptr(new NonSequenceInput<T>(id,embedding));
+        return make_shared<NonSequenceInput<T>>(id,embedding);
     }
 
     //Defines input information.
@@ -807,19 +807,19 @@ namespace nn {
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(int inputType, shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId){
-        return make_shared_ptr(new InputInfo<T>(inputType,embedding,contextLength,poolingId));
+        return make_shared<InputInfo<T>>(inputType,embedding,contextLength,poolingId);
     }
 
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(shared_ptr<Embedding<T>> embedding, size_t contextLength, int poolingId){
-        return make_shared_ptr(new InputInfo<T>(embedding,contextLength,poolingId));
+        return make_shared<InputInfo<T>>(embedding,contextLength,poolingId);
     }
 
     //Defines helper function to create shared pointer for InputInfo.
     template<typename T>
     shared_ptr<InputInfo<T>> newInputInfo(shared_ptr<Embedding<T>> embedding){
-        return make_shared_ptr(new InputInfo<T>(embedding));
+        return make_shared<InputInfo<T>>(embedding);
     }
 
     //Defines MLP model.
@@ -846,13 +846,13 @@ namespace nn {
                 vector<shared_ptr<Layer<T, Vector<T>>>> layers;
                 size_t total=weights.size();
                 for(size_t i=0;i<total;++i){
-                    //Hidden layer holders a copy of connection weights and bias vectors.
-                    layers.push_back(make_shared_ptr(new HiddenLayer<T,MVM>(*weights[i],*biasVectors[i],ActivationFunctions<T>::get(activationFunctionIds[i]))));
+                    //Hidden layer holders a copy of connection weights and bias vector
+                    layers.push_back(make_shared<HiddenLayer<T,MVM>>(*weights[i],*biasVectors[i],ActivationFunctions<T>::get(activationFunctionIds[i])));
                 }
                 if(normalizeOutputWithSoftmax){
-                    layers.push_back(make_shared_ptr(new SoftmaxLayer<T>()));
+                    layers.push_back(make_shared<SoftmaxLayer<T>>());
                 }
-                return make_shared_ptr(new MLP<T>(make_shared_ptr(new InputLayer<T>()),layers));
+                return make_shared<MLP<T>>(make_shared<InputLayer<T>>(),layers);
             }
             //Creates inputs for the runtime
             vector<shared_ptr<Input<T>>> createInputs(const vector<vector<size_t>>& idsInputs) const{
@@ -901,7 +901,7 @@ namespace nn {
                 loadInputsInfo<E>(is,inputsInfo);
                 loadHiddenLayers(is,weights,biasVectors,activationFunctionIds);
                 is.close();
-                return make_shared_ptr(new MLPModel<T,MVM>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax));
+                return make_shared<MLPModel<T,MVM>>(inputsInfo,weights,biasVectors,activationFunctionIds,normalizeOutputWithSoftmax);
             }
         private:
             static void saveInputsInfo(ostream& os, const vector<shared_ptr<InputInfo<T>>>& inputsInfo){
@@ -1035,7 +1035,7 @@ namespace nn {
                 load(is,size);
                 T* buffer=new T[size];
                 load(is,buffer,size);
-                return make_shared_ptr(new Vector<T>(shared_ptr<T>(buffer),size));
+                return newVector(buffer,size);
             }
             template<typename V>
             static void load(istream& is, V& value){
