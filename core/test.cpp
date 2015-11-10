@@ -584,15 +584,15 @@ int main( int argc, const char* argv[])
     }
     if(option=="perfReal"){
         perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
-        perfTestWithRealModel<MatrixVectoryMultiplier>();
         perfTestWithRealModel<MatrixVectoryMultiplierMoreUnRolling>();
+        perfTestWithRealModel<MatrixVectoryMultiplier>();
     }
     else if(option=="all"){
         unitTest();
         perfTest();
         perfTestWithRealModel<MatrixVectoryMultiplierBaseline>();
-        perfTestWithRealModel<MatrixVectoryMultiplier>();
         perfTestWithRealModel<MatrixVectoryMultiplierMoreUnRolling>();
+        perfTestWithRealModel<MatrixVectoryMultiplier>();
     } else{
         //default: do unit test
         unitTest();

@@ -15,4 +15,7 @@ if (CUDA_FOUND)
         add_definitions(-D_MVM_GPU_)
 endif()
 
+#Defines test suites
+enable_testing()
+
 

@@ -16,6 +16,9 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 list(APPEND CUDA_NVCC_FLAGS --gpu-architecture sm_20)
 CUDA_INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}")
 
+# Fine tune the parameter
+add_definitions(-DBLOCK_SIZE=4)
+
 # Build static library
 CUDA_ADD_LIBRARY(mvm_gpu mvm.cu)
 
