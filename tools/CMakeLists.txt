@@ -8,7 +8,8 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
-#Boost 
+#Boost
+#in a lower version of boost, use -DBoost_NO_BOOST_CMAKE=ON to set the lib path: #http://stackoverflow.com/questions/9948375/cmake-find-package-succeeds-but-returns-wrong-path
 find_package (Boost REQUIRED COMPONENTS regex)
 include_directories (SYSTEM ${Boost_INCLUDE_DIR})
 
