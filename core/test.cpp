@@ -218,7 +218,7 @@ void writeReadFilleTest(){
     is.read((char*)&f2,sizeof(T));
     is.read((char*)&size2,sizeof(size_t));
     ASSERT(equals(f1,f2),"f1,f2");
-    ASSERT(equals(size1,size2),"size1,size2");
+    ASSERT(size1==size2,"size1,size2");
 }
 
 template<typename T>

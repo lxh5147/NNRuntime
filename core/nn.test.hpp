@@ -3,8 +3,9 @@ This file defines common functions.
 */
 #ifndef __NN_TEST__
 #define __NN_TEST__
-#include <boost/random/uniform_real_distribution.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
+#include <boost/random/uniform_int.hpp>
+#include <boost/random/uniform_real.hpp>
+#include <boost/random/variate_generator.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include "nn.hpp"
 
@@ -14,7 +15,6 @@ namespace nn{
         using namespace nn;
         using namespace std;
         using namespace boost;
-        using namespace boost::random;
 
         template<typename T>
         shared_ptr<Vector<T> > newVectorWithDataArray(T data[], size_t size){
@@ -83,20 +83,25 @@ namespace nn{
             return true;
         }
 
+        //Refer to: http://wowbagger.crest.iu.edu/doc/libs/1_53_0/libs/random/example/random_demo.cpp
         template<typename T>
         void generateRandomNumbers(T* buffer, size_t size, T min=0, T max=1000){
             mt19937 rng;
-            uniform_real_distribution<T> dist(min,max);
+            // values between min and max (min inclusive, max exclusive).
+            uniform_real<> uni_dist(min,max);
+            variate_generator<mt19937&, uniform_real<> > uni(rng, uni_dist);
             for(size_t i=0;i<size;++i){
-                buffer[i]=dist(rng);
+                buffer[i]=uni();
             }
         }
 
         void generateRandomNumbers(vector<size_t>& buffer, size_t size, size_t min, size_t max){
             mt19937 rng;
-            uniform_int_distribution<size_t> dist(min,max);
+            //range:[min,max]
+            uniform_int<> uni_dist(min,max+1);
+            variate_generator<mt19937&, uniform_int<> > uni(rng, uni_dist);
             for(size_t i=0;i<size;++i){
-                buffer[i]=dist(rng);
+                buffer[i]=uni();
             }
         }
 
