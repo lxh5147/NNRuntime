@@ -4,7 +4,7 @@ This file defines the quantization routine.
 #ifndef __QUANTIZATION__
 #define __QUANTIZATION__
 
-#include <memory>
+#include "common.hpp"
 
 namespace quantization{
 
@@ -24,7 +24,7 @@ namespace quantization{
     template<typename T>
     void calcMinMax(Iterator<T>& it, T& min, T& max){
         T cur;
-        auto hasElement=it.next(cur);
+        bool hasElement=it.next(cur);
         ASSERT(hasElement,"hasElement");
         min=cur;
         max=cur;
@@ -45,7 +45,7 @@ namespace quantization{
     class LinearQuantizer: public Quantizer<T,Q> {
         public:
             //computation complexity: O(n), where n is the number of values to be quantized
-            static shared_ptr<Quantizer<T,Q>> create(Iterator<T>& it, Q size, T min, T max){
+            static shared_ptr<Quantizer<T,Q> > create(Iterator<T>& it, Q size, T min, T max){
                 ASSERT(size>0,"size");
                 ASSERT(max>=min,"max>=min");
                 //initialized to zero
@@ -106,26 +106,29 @@ namespace quantization{
             const T m_interval;
     };
 
-    template<class T> using _16BitsLinearQuantizer = LinearQuantizer<T,unsigned short>;
-    template<class T> using _8BitsLinearQuantizer = LinearQuantizer<T,unsigned char>;
-    
+    template<class T> class _16BitsLinearQuantizer: public LinearQuantizer<T,unsigned short>{};
+    template<class T> class _8BitsLinearQuantizer: public LinearQuantizer<T,unsigned char>{};
+
     //More advanced quantization based on Fisher's Natural Breaks Classificatio, with a computation complexity of O(k×n×log(n)) 
     //http://wiki.objectvision.nl/index.php/Fisher's_Natural_Breaks_Classification#Dynamic_programming_approach
-    template <typename T>
-    constexpr T MaxValue(){
-        ASSERT(false,"un supported max value");
-        return -1;
-    }
+
+    template<class T>
+    class MaxValue{
+        public:
+            static const T value=-1;
+    };
 
     template<>
-    constexpr unsigned char MaxValue(){
-        return 255;
-    }
+    class MaxValue<unsigned char>{
+        public:
+            static const unsigned char value=255;  
+    };
 
     template<>
-    constexpr unsigned short MaxValue(){
-        return 65535;
-    }
+    class MaxValue<unsigned short>{
+        public:
+            static const unsigned short value=65535;  
+    };
 }
 
 #endif

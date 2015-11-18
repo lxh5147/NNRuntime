@@ -13,8 +13,8 @@ public class test {
     public static void main(String argv[]) {
         assert(argv.length==1);
         String modelFile=argv[0];
-        long handle=nn_runtime.load(modelFile);
-        assert(handle>0);        
+        long handle=nn_runtime.load(modelFile,false,true);
+        assert(handle>0);
         IdVector ids=new IdVector();
         ids.add(0);
         ids.add(2);

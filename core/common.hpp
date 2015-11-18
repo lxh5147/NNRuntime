@@ -5,19 +5,15 @@ This file defines common functions.
 #define __COMMON__
 
 #include <iostream>
-#include <memory>
 #include <map>
-#include <mutex>
 #include <string>
-#include <chrono>
-
+#include <ctime>
+#include <pthread.h>
+#include <boost/shared_ptr.hpp>
 
 namespace common{
     using namespace std;
-
-    //PERF measurement helpers
-    typedef chrono::high_resolution_clock CLOCK;
-    #define microseconds(x) (std::chrono::duration_cast<chrono::microseconds>(wctduration).count())
+    using namespace boost;
 
     //Defines an macro that logs error message and stops the current program if some condition does not hold.
     #define ASSERT(condition, message) \
@@ -51,29 +47,80 @@ namespace common{
     };
 
     //Defines cache.
-    template<typename T>
+    template<typename T,typename K=string>
     class Cache{
         public:
             //Gets cached item with its key.
-            shared_ptr<T> get(const string& key) {
-                shared_ptr<T> item=nullptr;
-                lock.lock();
-                if(items.find(key)!=items.end()){
-                    item=items[key];
+            shared_ptr<T> get(const K& key) {
+                shared_ptr<T> item;
+                int retCode=pthread_rwlock_rdlock(&m_lock);
+                ASSERT(retCode==0,"acquire read lock");
+                if(m_items.find(key)!=m_items.end()){
+                    item=m_items[key];
                 }
-                lock.unlock();
+                retCode=pthread_rwlock_unlock(&m_lock);
+                ASSERT(retCode==0,"release read lock");
                 return item;
             }
             //Puts an item to this cache.
-            void put(const string& key, const shared_ptr<T>& item){
-                lock.lock();
-                items[key]=item;
-                lock.unlock();
+            void put(const K& key, const shared_ptr<T>& item){
+                int retCode=pthread_rwlock_wrlock(&m_lock);
+                ASSERT(retCode==0,"aquire exclusive write lock");
+                m_items[key]=item;
+                retCode=pthread_rwlock_unlock(&m_lock);
+                ASSERT(retCode==0,"release exclusive write lock");
+            }
+        public:
+            Cache(){
+                int retCode=pthread_rwlock_init(&m_lock, NULL);
+                ASSERT(retCode==0,"initialize lock");
             }
         private:
-            map<string, shared_ptr<T>> items;
-            mutex lock;
+            map<K, shared_ptr<T> > m_items;
+            pthread_rwlock_t m_lock; 
     };
+
+    template<typename T>
+    class Cache<T,size_t>{
+        public:
+            //Gets cached item with its key.
+            shared_ptr<T> get(const size_t& key) {
+                ASSERT(key>0 && key<=m_items.size(),"key");
+                int retCode=pthread_rwlock_rdlock(&m_lock);
+                ASSERT(retCode==0,"acquire read lock");
+                shared_ptr<T> item=m_items[key-1];
+                retCode=pthread_rwlock_unlock(&m_lock);
+                ASSERT(retCode==0,"release read lock");
+                return item;
+            }
+            //Puts an item to this cache.
+            size_t put(const shared_ptr<T>& item){
+                int retCode=pthread_rwlock_wrlock(&m_lock);
+                ASSERT(retCode==0,"aquire exclusive write lock");
+                m_items.push_back(item);
+                size_t key=m_items.size();
+                retCode=pthread_rwlock_unlock(&m_lock);
+                ASSERT(retCode==0,"release exclusive write lock");
+                return key;
+            }
+        public:
+            Cache(){
+                int retCode=pthread_rwlock_init(&m_lock, NULL);
+                ASSERT(retCode==0,"initialize lock");
+            }
+        private:
+            vector<shared_ptr<T> > m_items;
+            pthread_rwlock_t m_lock; 
+    };
+
+    //PERF measurement helpers
+    #define microseconds(x) (((double)x)/ CLOCKS_PER_SEC * 1000000)
+
+    //range for loop
+    #define BEGIN_STD_VECTOR_FOR(v,it,...) for(size_t i=0;i<(v).size();++i){const __VA_ARGS__& it= (v)[i];
+
+    #define END_STD_VECTOR_FOR }
+
 }
 
 #endif

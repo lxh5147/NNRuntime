@@ -4,9 +4,6 @@ project(nn_core_gpu)
 
 find_package(CUDA REQUIRED)
 
-#to kill the error: gcc 4.7 not supported
-set(CUDA_HOST_COMPILER /usr/bin/gcc)
-
 set(CMAKE_CXX_FLAG "-g -Wall")
 set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")

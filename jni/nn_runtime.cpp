@@ -1,61 +1,50 @@
 #include "nn.hpp"
 #include "nn_runtime.h"
-#include <mutex>
-
 
 using namespace std;
 using namespace common;
 using namespace nn;
 
-
-#ifndef TYPE_NN_PARAMETER
-#define TYPE_NN_PARAMETER float
+#ifndef TYPE_Embedding
+#define TYPE_Embedding EmbeddingWith16BitsQuantizedValues
 #endif
 
-typedef MLPModel<TYPE_NN_PARAMETER> TYPE_MLPModel;
-typedef MLPModelFactory<TYPE_NN_PARAMETER> TYPE_MLPModelFactory;
+#ifndef TYPE_MatrixVectoryMultiplier
+#define TYPE_MatrixVectoryMultiplier MatrixVectoryMultiplier
+#endif
+
+typedef MLPModel<TYPE_NN_PARAMETER,TYPE_MatrixVectoryMultiplier> TYPE_MLPModel;
 
 //Loaded models.
-vector<shared_ptr<TYPE_MLPModel>> models;
-//Lock associated with the models
-mutex modelsLock;
+static Cache<TYPE_MLPModel,size_t> models;
 
 const size_t HANDLE_INVALID=0;
 
 size_t load(const char* modelPath,bool quantizeEmbedding,bool normalizeOutputWithSoftmax){
     ASSERT(modelPath,"modelPath");
-    shared_ptr<TYPE_MLPModel> pModel=nullptr;
+    shared_ptr<TYPE_MLPModel> pModel;
     try{
         #ifdef DEBUG
         cout<<"DEBUG\tload model with modelPath:"<<modelPath<<",quantizeEmbedding:"<<quantizeEmbedding<<",normalizeOutputWithSoftmax:"<<normalizeOutputWithSoftmax<<endl;
         #endif
         #ifdef PERF
-        auto wctstart=CLOCK::now();
+        clock_t wctstart=clock();
         #endif
-        pModel=quantizeEmbedding?TYPE_MLPModelFactory::load<EmbeddingWith16BitsQuantizedValues>(modelPath,normalizeOutputWithSoftmax):TYPE_MLPModelFactory::load<EmbeddingWithRawValues>(modelPath,normalizeOutputWithSoftmax);
+        pModel=quantizeEmbedding?MLPModelFactory::load<TYPE_NN_PARAMETER,TYPE_Embedding,TYPE_MatrixVectoryMultiplier>(modelPath,normalizeOutputWithSoftmax):MLPModelFactory::load<TYPE_NN_PARAMETER,TYPE_Embedding,TYPE_MatrixVectoryMultiplier>(modelPath,normalizeOutputWithSoftmax);
         #ifdef PERF
-        auto wctduration = (CLOCK::now()-wctstart);
+        clock_t wctduration = (clock()-wctstart);
         cout << "PERF\tload finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
         #endif
+        size_t handle=models.put(pModel);
+        #ifdef DEBUG
+        cout<<"DEBUG\tloaded model handle:"<<handle<<endl;
+        #endif
+        return handle;
     }
     catch(...){
         cerr<<"Failed to load binary model "<<modelPath<<endl;
         return HANDLE_INVALID;
-    }
-    try {
-        modelsLock.lock();
-        models.push_back(pModel);
-        size_t handle = models.size();
-        modelsLock.unlock();
-#ifdef DEBUG
-        cout<<"DEBUG\tloaded model handle:"<<handle<<endl;
-#endif
-        return handle;
-    } catch (const bad_alloc &ex) {
-       modelsLock.unlock();
-       cerr<<ex.what() << ": failed to load binary model "<<modelPath<<endl;
-       return HANDLE_INVALID;
-    }
+    } 
 }
 
 //Helper function that converts Vector to std::vector.
@@ -71,46 +60,48 @@ vector<double> to_vector(const Vector<T>& input){
 }
 
 //Predicts the probability of each category.
-vector<double> predict(size_t modelHandle, const vector<vector<size_t>>& idsInputs){
+vector<double> predict(size_t modelHandle, const vector<vector<size_t> >& idsInputs){
     #ifdef DEBUG
     cout<<"DEBUG\tpredict with modelHandle:"<<modelHandle<<",idsInputs:";
-    for(auto& ids:idsInputs){
+    BEGIN_STD_VECTOR_FOR(idsInputs,ids,vector<size_t>)
         cout<<"[ ";
-        for(auto& id:ids){
+        BEGIN_STD_VECTOR_FOR(ids,id,size_t)
             cout<<id<<" ";
-        }
+        END_STD_VECTOR_FOR
         cout<<"]";
-    }
+    END_STD_VECTOR_FOR
     cout<<endl;
     #endif
-    ASSERT(modelHandle>0 && modelHandle<=models.size(),"modelHandle");
-    TYPE_MLPModel* pModel=models[modelHandle-1].get();
+    shared_ptr<TYPE_MLPModel> model=models.get(modelHandle);
+    ASSERT(model,"model");
     try {
         #ifdef PERF
-        auto wctstart=CLOCK::now();
+        clock_t wctstart=clock();
         #endif
-        auto prediction= to_vector(pModel->predict(idsInputs));
+        vector<double> prediction=to_vector(model->predict(idsInputs));
         #ifdef PERF
-        auto wctduration = (CLOCK::now()-wctstart);
+        clock_t wctduration = (clock()-wctstart);
         cout << "PERF\tpredict finished in " << microseconds(wctduration) << " micro seconds (Wall Clock)" << endl;
         #endif
         #ifdef DEBUG
         cout<<"DEBUG\tpredict:";
-        for(auto& prob:prediction){
+        BEGIN_STD_VECTOR_FOR(prediction,prob,double)
             cout<<prob<<" ";
-        }
+        END_STD_VECTOR_FOR
         cout<<endl;
         #endif
         return prediction;
     } catch (...) {
         cerr<<"Failed to predict with: model handle="<<modelHandle<<endl;
         cerr<<"Id inputs="<<endl;
-        for(auto& ids:idsInputs){
-            for(auto& id:ids){
+        BEGIN_STD_VECTOR_FOR(idsInputs,ids,vector<size_t>)
+            cerr<<"[ ";
+            BEGIN_STD_VECTOR_FOR(ids,id,size_t)
                 cerr<<id<<" ";
-            }
-            cerr<<endl;
-        }
+            END_STD_VECTOR_FOR
+            cerr<<"]";
+        END_STD_VECTOR_FOR
+        cerr<<endl;
         return vector<double>();
     }
 }
