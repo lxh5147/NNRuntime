@@ -23,6 +23,5 @@ CUDA_ADD_LIBRARY(mvm_gpu mvm.cu)
 CUDA_ADD_EXECUTABLE(mvm_gpu_test test.cu)
 
 enable_testing()
-get_target_property(mvm_gpu_test_app mvm_gpu_test LOCATION)
-add_test(NAME mvm_gpu COMMAND ${mvm_gpu_test_app})
+add_test(NAME mvm_gpu COMMAND mvm_gpu_test)
 
